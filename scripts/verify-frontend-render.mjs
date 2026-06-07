@@ -282,8 +282,8 @@ try {
   // Tree filter (in the always-visible SearchBar): Only right hides left-only.
   await mockedPage.getByRole("combobox", { name: "Tree filter" }).click();
   await mockedPage.getByRole("option", { name: "Only right" }).click();
-  await mockedPage.locator(".tree-row", { hasText: "right-only.txt" }).waitFor({ timeout: 5_000 });
-  if (await mockedPage.locator(".tree-row", { hasText: "left-only.txt" }).count()) {
+  await mockedPage.locator(".tree-file", { hasText: "right-only.txt" }).waitFor({ timeout: 5_000 });
+  if (await mockedPage.locator(".tree-file", { hasText: "left-only.txt" }).count()) {
     throw new Error("Only right filter still showed left-only row");
   }
 
@@ -303,13 +303,13 @@ try {
   await mockedPage.getByRole("button", { name: "Clear search" }).click();
 
   // Metadata-only detection: identical decompiled source -> differentMetadataOnly badge.
-  const metadataRow = mockedPage.locator(".tree-row", { hasText: "com/example/Meta.class" });
+  const metadataRow = mockedPage.locator(".tree-file", { hasText: "Meta.class" });
   await metadataRow.waitFor({ timeout: 5_000 });
   await metadataRow.click({ force: true });
   await mockedPage.locator("text=class MetaSameSource").first().waitFor({ timeout: 10_000 });
-  await mockedPage.locator(".tree-row", { hasText: "com/example/Meta.class" }).locator("text=differentMetadataOnly").waitFor({ timeout: 10_000 });
+  await mockedPage.locator(".tree-file.differentMetadataOnly", { hasText: "Meta.class" }).waitFor({ timeout: 10_000 });
 
-  const appRow = mockedPage.locator(".tree-row", { hasText: "com/example/App.class" });
+  const appRow = mockedPage.locator(".tree-file", { hasText: "App.class" });
   await appRow.waitFor({ timeout: 5_000 });
   await appRow.click();
 
@@ -347,7 +347,7 @@ try {
   await mockedPage.locator("text=pending → right").waitFor({ timeout: 10_000 });
 
   // Binary preview details + hex dump.
-  const binaryRow = mockedPage.locator(".tree-row", { hasText: "assets/blob.bin" });
+  const binaryRow = mockedPage.locator(".tree-file", { hasText: "blob.bin" });
   await binaryRow.click();
   await mockedPage.locator("text=LEFT: Binary · 4 bytes · SHA-256 left-sha · CRC32 11111111").waitFor({ timeout: 5_000 });
   await mockedPage.locator("text=RIGHT: Binary · 4 bytes · SHA-256 right-sha · CRC32 22222222").waitFor({ timeout: 5_000 });
@@ -382,7 +382,7 @@ try {
 
   // Stage + signed-save (backup=false by default).
   const menuBarSaveStaged = mockedPage.getByRole("button", { name: "Save staged", exact: true });
-  const compareAppRow = mockedPage.locator(".tree-row.different", { hasText: "com/example/App.class" });
+  const compareAppRow = mockedPage.locator(".tree-file.different", { hasText: "App.class" });
   // Selecting an entry and waiting for the copy button to enable is the precondition
   // for staging; a save reloads the archive and resets the selection, so re-select
   // and confirm the copy button is enabled before each stage.
