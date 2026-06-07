@@ -21,14 +21,14 @@ interface ConfigDrawerProps {
   onClearSearch: () => void;
   onFilterChange: (filter: TreeFilter) => void;
   onEngineChange: (engine: Engine) => void;
-  onIgnoreWsChange: (value: boolean) => void;
-  onBackupChange: (value: boolean) => void;
+  onIgnoreWhitespaceChange: (value: boolean) => void;
+  onBackupEnabledChange: (value: boolean) => void;
 }
 
 export function ConfigDrawer({
   open, mode, searchScope, searching, treeFilter, engine, ignoreTrimWhitespace, backupEnabled,
   onScopeChange, onDeepSearch, onCancelDeepSearch, onClearSearch,
-  onFilterChange, onEngineChange, onIgnoreWsChange, onBackupChange,
+  onFilterChange, onEngineChange, onIgnoreWhitespaceChange, onBackupEnabledChange,
 }: ConfigDrawerProps) {
   if (!open) return <aside className="config-drawer closed" aria-hidden="true" />;
   return (
@@ -81,7 +81,7 @@ export function ConfigDrawer({
           </SelectGroup></SelectContent>
         </Select>
         <label className="check-label">
-          <Checkbox checked={ignoreTrimWhitespace} onCheckedChange={(c) => onIgnoreWsChange(c === true)} />
+          <Checkbox checked={ignoreTrimWhitespace} onCheckedChange={(c) => onIgnoreWhitespaceChange(c === true)} />
           Ignore trim whitespace
         </label>
       </section>
@@ -90,7 +90,7 @@ export function ConfigDrawer({
         <section className="drawer-group">
           <span className="zone-label">Save</span>
           <label className="check-label">
-            <Checkbox checked={backupEnabled} onCheckedChange={(c) => onBackupChange(c === true)} />
+            <Checkbox checked={backupEnabled} onCheckedChange={(c) => onBackupEnabledChange(c === true)} />
             Keep one overwritten .bak on save
           </label>
         </section>

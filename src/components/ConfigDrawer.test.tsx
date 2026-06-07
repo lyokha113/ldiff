@@ -10,7 +10,7 @@ function setup(overrides = {}) {
     treeFilter: "differences" as const, engine: "cfr" as const,
     ignoreTrimWhitespace: true, backupEnabled: false,
     onScopeChange: vi.fn(), onDeepSearch: vi.fn(), onCancelDeepSearch: vi.fn(), onClearSearch: vi.fn(),
-    onFilterChange: vi.fn(), onEngineChange: vi.fn(), onIgnoreWsChange: vi.fn(), onBackupChange: vi.fn(),
+    onFilterChange: vi.fn(), onEngineChange: vi.fn(), onIgnoreWhitespaceChange: vi.fn(), onBackupEnabledChange: vi.fn(),
     ...overrides,
   };
   render(<TooltipProvider><ConfigDrawer {...props} /></TooltipProvider>);

@@ -719,8 +719,8 @@ export function App() {
         onClearSearch={clearSearch}
         onFilterChange={setTreeFilter}
         onEngineChange={(next) => void changeEngine(next)}
-        onIgnoreWsChange={setIgnoreTrimWhitespace}
-        onBackupChange={setBackupEnabled}
+        onIgnoreWhitespaceChange={setIgnoreTrimWhitespace}
+        onBackupEnabledChange={setBackupEnabled}
       />
       <Dialog open={signedSavePrompt !== undefined} onOpenChange={(open) => !open && setSignedSavePrompt(undefined)}>
         <DialogContent>
