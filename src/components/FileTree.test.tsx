@@ -5,8 +5,8 @@ import { FileTree } from "@/components/FileTree";
 import type { ComparePair } from "@/lib/types";
 
 const pairs: ComparePair[] = [
-  { path: "A.class", status: "different", left: { path: "A.class", kind: "class" }, right: { path: "A.class", kind: "class" } },
-  { path: "B.txt", status: "onlyLeft", left: { path: "B.txt", kind: "text" } },
+  { path: "com/example/App.class", status: "different", left: { path: "com/example/App.class", kind: "class" }, right: { path: "com/example/App.class", kind: "class" } },
+  { path: "top.txt", status: "onlyLeft", left: { path: "top.txt", kind: "text" } },
 ];
 
 function setup(overrides = {}) {
@@ -20,14 +20,25 @@ function setup(overrides = {}) {
 }
 
 describe("FileTree", () => {
-  it("renders a row per visible pair with its status badge", () => {
+  it("renders folders and files; diff folders auto-expand to show files", () => {
     setup();
-    expect(screen.getByText("different")).toBeInTheDocument();
-    expect(screen.getByText("onlyLeft")).toBeInTheDocument();
+    expect(screen.getByText("com")).toBeInTheDocument();
+    expect(screen.getByText("App.class")).toBeInTheDocument();
+    expect(screen.getByText("top.txt")).toBeInTheDocument();
   });
-  it("calls onInspect when a row is clicked", async () => {
+  it("collapsing a folder hides its files", async () => {
+    setup();
+    await userEvent.click(screen.getByText("com"));
+    expect(screen.queryByText("App.class")).not.toBeInTheDocument();
+  });
+  it("clicking a file calls onInspect with its pair", async () => {
     const props = setup();
-    await userEvent.click(screen.getAllByRole("button")[0]);
-    expect(props.onInspect).toHaveBeenCalledWith(pairs[0]);
+    await userEvent.click(screen.getByText("top.txt"));
+    expect(props.onInspect).toHaveBeenCalledWith(pairs[1]);
+  });
+  it("shows the status glyph for a file", () => {
+    setup();
+    expect(screen.getByLabelText("left only")).toBeInTheDocument();
+    expect(screen.getByLabelText("modified")).toBeInTheDocument();
   });
 });
