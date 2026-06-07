@@ -4,14 +4,13 @@ import {
   Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Engine, Mode, SearchScope, TreeFilter } from "@/lib/types";
+import type { Engine, Mode, SearchScope } from "@/lib/types";
 
 interface ConfigDrawerProps {
   open: boolean;
   mode: Mode;
   searchScope: SearchScope;
   searching: boolean;
-  treeFilter: TreeFilter;
   engine: Engine;
   ignoreTrimWhitespace: boolean;
   backupEnabled: boolean;
@@ -19,16 +18,15 @@ interface ConfigDrawerProps {
   onDeepSearch: () => void;
   onCancelDeepSearch: () => void;
   onClearSearch: () => void;
-  onFilterChange: (filter: TreeFilter) => void;
   onEngineChange: (engine: Engine) => void;
   onIgnoreWhitespaceChange: (value: boolean) => void;
   onBackupEnabledChange: (value: boolean) => void;
 }
 
 export function ConfigDrawer({
-  open, mode, searchScope, searching, treeFilter, engine, ignoreTrimWhitespace, backupEnabled,
+  open, mode, searchScope, searching, engine, ignoreTrimWhitespace, backupEnabled,
   onScopeChange, onDeepSearch, onCancelDeepSearch, onClearSearch,
-  onFilterChange, onEngineChange, onIgnoreWhitespaceChange, onBackupEnabledChange,
+  onEngineChange, onIgnoreWhitespaceChange, onBackupEnabledChange,
 }: ConfigDrawerProps) {
   if (!open) return <aside className="config-drawer closed" aria-hidden="true" />;
   return (
@@ -56,19 +54,6 @@ export function ConfigDrawer({
           <Button variant="outline" disabled={!searching} onClick={onCancelDeepSearch}>Cancel search</Button>
           <Button variant="ghost" onClick={onClearSearch}>Clear search</Button>
         </div>
-      </section>
-
-      <section className="drawer-group">
-        <span className="zone-label">View</span>
-        <Select value={treeFilter} onValueChange={(v) => onFilterChange(v as TreeFilter)}>
-          <SelectTrigger aria-label="Tree filter"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectGroup>
-            <SelectItem value="all">Show all</SelectItem>
-            <SelectItem value="differences">Differences only</SelectItem>
-            <SelectItem value="onlyLeft">Only left</SelectItem>
-            <SelectItem value="onlyRight">Only right</SelectItem>
-          </SelectGroup></SelectContent>
-        </Select>
       </section>
 
       <section className="drawer-group">

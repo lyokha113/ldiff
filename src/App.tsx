@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ConfigDrawer } from "@/components/ConfigDrawer";
+import { SearchBar } from "@/components/SearchBar";
 import { DiffView, pairHasClass } from "@/components/DiffView";
 import { FileTree } from "@/components/FileTree";
 import { SplashScreen } from "@/components/SplashScreen";
@@ -137,6 +138,7 @@ export function App() {
   const [suppressSignedWarningForFile, setSuppressSignedWarningForFile] = useState(false);
   const [signedWarningSuppressions, setSignedWarningSuppressions] = useState<Record<string, boolean>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(true);
   const previewRequestId = useRef(0);
   const searchStreamId = useRef(0);
   const editorRef = useRef<CodeEditor | undefined>(undefined);
@@ -623,6 +625,7 @@ export function App() {
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={clearStaged}>Clear staged</Button>
+          <Button variant="outline" aria-label="Toggle search" onClick={() => setSearchOpen((o) => !o)}>Search panel</Button>
           <Button variant="outline" aria-label="Settings" onClick={() => setDrawerOpen((o) => !o)}>Settings</Button>
         </div>
       </header>
@@ -651,11 +654,14 @@ export function App() {
         </div>
       </section>
 
-      <div className="search-bar">
-        <Input className="search-input" value={query} placeholder="Search paths, text, constants"
-          onChange={(event) => setQuery(event.target.value)} />
-        <Button onClick={runSearch}>Search</Button>
-      </div>
+      <SearchBar
+        open={searchOpen}
+        query={query}
+        treeFilter={treeFilter}
+        onQueryChange={setQuery}
+        onSearch={runSearch}
+        onFilterChange={setTreeFilter}
+      />
       {dropHint && <p className="platform-hint">{dropHint}</p>}
       <p className="message">{message}</p>
       <span className="staged-status">{stagedTarget ? `Pending copies target: ${stagedTarget}` : "No staged copies"}</span>
@@ -709,7 +715,6 @@ export function App() {
         mode={mode}
         searchScope={searchScope}
         searching={searching}
-        treeFilter={treeFilter}
         engine={engine}
         ignoreTrimWhitespace={ignoreTrimWhitespace}
         backupEnabled={backupEnabled}
@@ -717,7 +722,6 @@ export function App() {
         onDeepSearch={runDeepSearch}
         onCancelDeepSearch={cancelDeepSearch}
         onClearSearch={clearSearch}
-        onFilterChange={setTreeFilter}
         onEngineChange={(next) => void changeEngine(next)}
         onIgnoreWhitespaceChange={setIgnoreTrimWhitespace}
         onBackupEnabledChange={setBackupEnabled}
