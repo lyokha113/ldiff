@@ -31,10 +31,13 @@ impl NestedArchiveCache {
         })
     }
 
-    /// Drop all cached archives. Temp files are removed when `temp_dir` is
-    /// dropped (i.e. when the whole cache is replaced).
+    /// Evict all cached `Archive` handles. The extracted temp files remain on
+    /// disk until this cache is dropped; only the in-memory index is cleared.
+    /// Resetting the counter lets the next extraction reuse the freed temp file
+    /// names (safe because no live handle references them once the map is empty).
     pub fn clear(&mut self) {
         self.archives.clear();
+        self.counter = 0;
     }
 
     /// Open the archive addressed by `archive_path` (every `!/`-segment is an
