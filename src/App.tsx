@@ -43,16 +43,9 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ConfigDrawer } from "@/components/ConfigDrawer";
+import { MenuBar } from "@/components/MenuBar";
 import { SourceChips } from "@/components/SourceChips";
 import { SearchBar } from "@/components/SearchBar";
 import { DiffView, pairHasClass } from "@/components/DiffView";
@@ -607,28 +600,18 @@ export function App() {
   return (
     <TooltipProvider>
     <main>
-      <header>
-        <div className="brand">
-          <h1>jdiff</h1>
-          <span className="tagline">archive diff · merge</span>
-        </div>
-        <div className="topbar-controls">
-          <Select value={mode} onValueChange={(value) => changeMode(value as Mode)}>
-            <SelectTrigger aria-label="Mode">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="single">Single</SelectItem>
-                <SelectItem value="compare">Compare</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={clearStaged}>Clear staged</Button>
-          <Button variant="outline" aria-label="Toggle search" onClick={() => setSearchOpen((o) => !o)}>Search panel</Button>
-          <Button variant="outline" aria-label="Settings" onClick={() => setDrawerOpen((o) => !o)}>Settings</Button>
-        </div>
-      </header>
+      <MenuBar
+        mode={mode}
+        stagedTarget={stagedTarget}
+        stagedCount={Object.keys(stagedEntries).length}
+        searchOpen={searchOpen}
+        drawerOpen={drawerOpen}
+        onChangeMode={changeMode}
+        onSave={(side) => void save(side)}
+        onClearStaged={clearStaged}
+        onToggleSearch={() => setSearchOpen((o) => !o)}
+        onToggleDrawer={() => setDrawerOpen((o) => !o)}
+      />
 
       <SourceChips
         mode={mode}
@@ -652,7 +635,6 @@ export function App() {
       />
       {dropHint && <p className="platform-hint">{dropHint}</p>}
       <p className="message">{message}</p>
-      <span className="staged-status">{stagedTarget ? `Pending copies target: ${stagedTarget}` : "No staged copies"}</span>
       {searchResults.length > 0 && (
         <section className="search-results">
           {searchResults.map((result) => (

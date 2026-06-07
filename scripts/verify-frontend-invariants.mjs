@@ -319,8 +319,9 @@ if (
   failures.push("src/App.tsx: dirty staged changes must block switching to Single mode and reset Monaco DiffEditor before unmount");
 }
 
-if (!frontend.includes('<Select value={mode} onValueChange={(value) => changeMode(value as Mode)}>')) {
-  failures.push("src/App.tsx: mode selector must use guarded changeMode");
+if (!frontend.includes('onValueChange={(value) => onChangeMode(value as Mode)}') &&
+    !frontend.includes('onValueChange={(value) => changeMode(value as Mode)}')) {
+  failures.push('frontend: mode selector must use guarded changeMode');
 }
 
 if (failures.length > 0) {
