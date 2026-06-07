@@ -331,7 +331,7 @@ fn read_entry_preview(
                 .decompile(engine, archive_path, source_path)
                 .unwrap_or_else(|error| format!("Decompiler unavailable: {error}")),
         ),
-        EntryKind::Binary => (
+        EntryKind::Binary | EntryKind::Archive => (
             "plaintext",
             Some(format!(
                 "Binary · {} bytes · SHA-256 {} · CRC32 {:08x}",
@@ -498,7 +498,7 @@ fn search_archive(archive: &Archive, query: &str) -> Result<Vec<SearchHit>, Stri
                     line_number_for_match(&String::from_utf8_lossy(&bytes), &query_lower)
                         .map(|line| SearchHit::new(entry.path.clone(), "text").with_line(line))
                 }
-                EntryKind::Directory | EntryKind::Binary => None,
+                EntryKind::Directory | EntryKind::Binary | EntryKind::Archive => None,
             };
         }
         if let Some(hit) = hit {
