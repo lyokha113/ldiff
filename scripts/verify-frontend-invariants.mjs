@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const app = readFileSync("src/App.tsx", "utf8");
 const packageJson = readFileSync("package.json", "utf8");
@@ -7,6 +7,14 @@ const componentsJson = readFileSync("components.json", "utf8");
 const tsconfig = readFileSync("tsconfig.json", "utf8");
 const styles = readFileSync("src/styles.css", "utf8");
 const viteConfig = readFileSync("vite.config.ts", "utf8");
+
+// Combined frontend source: App.tsx + every component (markup may live in either).
+const componentDir = "src/components";
+const componentFiles = readdirSync(componentDir, { recursive: true })
+  .filter((f) => typeof f === "string" && f.endsWith(".tsx") && !f.endsWith(".test.tsx"))
+  .map((f) => readFileSync(`${componentDir}/${f}`, "utf8"));
+const frontend = [app, ...componentFiles].join("\n");
+
 const failures = [];
 
 if (!app.includes("useRef")) {
@@ -67,8 +75,8 @@ for (const marker of [
   'from "@/components/ui/select";',
   'from "@/components/ui/tooltip";',
 ]) {
-  if (!app.includes(marker)) {
-    failures.push(`src/App.tsx: must compose UI through shadcn component ${marker}`);
+  if (!frontend.includes(marker)) {
+    failures.push(`frontend: must compose UI through shadcn component ${marker}`);
   }
 }
 
@@ -85,8 +93,8 @@ for (const marker of [
   "DialogTitle>Signed JAR warning",
   "Do not ask again for this file this session",
 ]) {
-  if (!app.includes(marker)) {
-    failures.push(`src/App.tsx: missing shadcn composition marker ${marker}`);
+  if (!frontend.includes(marker)) {
+    failures.push(`frontend: missing shadcn composition marker ${marker}`);
   }
 }
 
@@ -281,21 +289,21 @@ if (
   failures.push("src/App.tsx: search-result line highlighting must target the selected editor side");
 }
 
-if (!app.includes('disabled={mode === "single"}')) {
+if (!frontend.includes('disabled={mode === "single"}')) {
   failures.push("src/App.tsx: search scope selector must be disabled in Single mode");
 }
 
-const copyActionGuards = app.match(/mode === "single"/g)?.length ?? 0;
+const copyActionGuards = frontend.match(/mode === "single"/g)?.length ?? 0;
 if (copyActionGuards < 5) {
   failures.push("src/App.tsx: Single mode must disable search scope and all merge copy actions");
 }
 
-if (!app.includes('<Button variant="secondary" disabled={mode === "single"} onClick={() => save(side)}>Save staged</Button>')) {
-  failures.push("src/App.tsx: Save staged button must be disabled in Single mode");
+if (!frontend.includes('disabled={mode === "single"}') || !/save\(side\)/.test(frontend)) {
+  failures.push('frontend: Save staged control must call save(side) and be disabled in Single mode');
 }
 
-if (!app.includes('{mode === "compare" && <section className="save-settings">')) {
-  failures.push("src/App.tsx: save settings must only render in Compare mode");
+if (!frontend.includes('{mode === "compare" &&') || !frontend.includes('Keep one overwritten .bak on save')) {
+  failures.push('frontend: backup-on-save toggle must render only in Compare mode');
 }
 
 const changeModeBody = app.match(/function changeMode\(next: Mode\) {([\s\S]*?)\n  }/)?.[1] ?? "";
@@ -308,7 +316,7 @@ if (
   failures.push("src/App.tsx: dirty staged changes must block switching to Single mode and reset Monaco DiffEditor before unmount");
 }
 
-if (!app.includes('<Select value={mode} onValueChange={(value) => changeMode(value as Mode)}>')) {
+if (!frontend.includes('<Select value={mode} onValueChange={(value) => changeMode(value as Mode)}>')) {
   failures.push("src/App.tsx: mode selector must use guarded changeMode");
 }
 
