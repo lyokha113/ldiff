@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
@@ -51,5 +51,17 @@ describe("WorkspaceTabs", () => {
     await userEvent.click(screen.getByLabelText("Close com/x/Foo.class"));
     expect(props.onCloseTab).toHaveBeenCalledWith("com/x/Foo.class");
     expect(props.onSelectTab).not.toHaveBeenCalled();
+  });
+  it("closes the tab on middle-click", () => {
+    const props = setup();
+    const tab = screen.getByRole("tab", { name: /Foo\.class/ });
+    fireEvent(tab, new MouseEvent("auxclick", { bubbles: true, cancelable: true, button: 1 }));
+    expect(props.onCloseTab).toHaveBeenCalledWith("com/x/Foo.class");
+  });
+  it("strips the nested-archive separator from the label", () => {
+    setup({
+      tabs: [{ path: "outer.jar!/com/x/Nested.class", status: "different" as const }],
+    });
+    expect(screen.getByText("Nested.class")).toBeInTheDocument();
   });
 });
