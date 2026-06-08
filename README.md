@@ -21,38 +21,77 @@ merge copies the original entry bytes, never the decompiled view.
 
 # For Users
 
-You do not need Rust, Node, or Java installed — the released app bundles its own
-JVM runtime.
+> **No prebuilt installer yet.** There is no Releases download at this time, so
+> you run LDiff from source. The steps below get a working app from a clean
+> clone. You build it once, then launch it whenever you want.
 
-## Install
+## Prerequisites
 
-Download the latest installer for your platform from the project's **Releases**
-page, then:
+Install these first (one-time setup):
 
-### macOS
+- **Rust** toolchain — <https://rustup.rs>
+- **Node.js 18+ / npm** — <https://nodejs.org>
+- **Java 17 JDK with `jlink`** (e.g. Temurin 17) — needed for the decompiler.
+- **Maven** — builds the decompiler sidecar.
+- **macOS only:** Xcode Command Line Tools (`xcode-select --install`).
 
-1. Download `LDiff-<arch>.dmg` (`aarch64` for Apple Silicon, `x86_64` for Intel).
-2. Open the DMG and drag **LDiff** into `Applications`.
-3. First launch: right-click **LDiff** → **Open** to clear Gatekeeper if the
-   build is not notarized.
+Verify they are on your `PATH`:
 
-### Windows
+```bash
+rustc --version
+node --version
+mvn --version
+jlink --version   # must report 17 or newer
+```
 
-1. Download the LDiff installer (`.msi` or `.exe`).
-2. Run it and follow the prompts.
+## Get the source
 
-### Linux
+```bash
+git clone https://github.com/lyokha113/ldiff.git
+cd ldiff
+```
 
-1. Download the LDiff AppImage (or the `.deb` for Debian/Ubuntu).
-2. Make it executable and run it:
+To update later, pull the latest and rebuild:
 
-   ```bash
-   chmod +x LDiff-*.AppImage
-   ./LDiff-*.AppImage
-   ```
+```bash
+git pull
+npm install
+LDIFF_JLINK="$(command -v jlink)" scripts/assemble-sidecar-resources.sh
+```
 
-   On Wayland, Browse and path input are the most reliable ways to open files.
-   If drag-and-drop misbehaves, launch under XWayland (`GDK_BACKEND=x11`).
+## Build and run
+
+```bash
+# 1. Install frontend dependencies
+npm install
+
+# 2. Build the JVM decompiler sidecar and its bundled runtime
+LDIFF_JLINK="$(command -v jlink)" scripts/assemble-sidecar-resources.sh
+
+# 3. Launch the desktop app
+npm run tauri -- dev
+```
+
+Step 2 is required for **Decompile** and **bytecode** views to work. If you skip
+it, LDiff still opens, inspects, diffs, and merges archives — only the JVM-backed
+decompiler degrades. Run it once; re-run only after pulling sidecar changes.
+
+`npm run tauri -- dev` opens LDiff in a native window with hot reload. The first
+run compiles the Rust host, so it takes a few minutes; later launches are fast.
+
+### Want a standalone app you can double-click?
+
+Build a bundle for your platform instead of running in dev mode:
+
+```bash
+npm run tauri -- build --bundles app    # macOS .app
+```
+
+The output lands under `target/<...>/bundle/`. Full per-platform packaging,
+signing, and notarization steps are in **[For Developers](#building-and-packaging-macos)**.
+
+On Wayland (Linux), Browse and path input are the most reliable ways to open
+files. If drag-and-drop misbehaves, launch under XWayland (`GDK_BACKEND=x11`).
 
 ## Using LDiff
 
