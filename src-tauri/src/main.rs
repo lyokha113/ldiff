@@ -7,9 +7,9 @@ use std::{
 };
 
 use ldiff_core::{
-    Archive, ArchiveDiff, ArchiveEntry, ArchiveMetadata, CommitOptions, CommitResult,
-    DecompileEngine, EntryKind, MergePlan, NestedArchiveCache, compare, edit, search_constant_pool,
-    validate_path as validate_archive_path,
+    Archive, ArchiveDiff, ArchiveEntry, ArchiveMetadata, ArchiveSourceKind, CommitOptions,
+    CommitResult, DecompileEngine, EntryKind, MergePlan, NestedArchiveCache, compare, edit,
+    search_constant_pool, validate_path as validate_archive_path,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -42,8 +42,8 @@ struct AppState {
     right: Option<Archive>,
     left_nested: NestedArchiveCache,
     right_nested: NestedArchiveCache,
-    merge_plan: MergePlan,
-    staged_target: Option<Side>,
+    left_plan: MergePlan,
+    right_plan: MergePlan,
     engine: DecompileEngine,
     sidecar: Arc<Mutex<SidecarClient>>,
     prefetch_sidecar: Arc<Mutex<SidecarClient>>,
@@ -68,8 +68,8 @@ impl AppState {
             right: None,
             left_nested: NestedArchiveCache::new().expect("temp dir for nested cache"),
             right_nested: NestedArchiveCache::new().expect("temp dir for nested cache"),
-            merge_plan: MergePlan::new(),
-            staged_target: None,
+            left_plan: MergePlan::new(),
+            right_plan: MergePlan::new(),
             engine: DecompileEngine::Cfr,
             sidecar: Arc::new(Mutex::new(sidecar)),
             prefetch_sidecar: Arc::new(Mutex::new(prefetch_sidecar)),
@@ -85,8 +85,50 @@ impl AppState {
         self.install_archive(archive, side)
     }
 
+    fn plan_mut(&mut self, side: Side) -> &mut MergePlan {
+        match side {
+            Side::Left => &mut self.left_plan,
+            Side::Right => &mut self.right_plan,
+        }
+    }
+
+    fn plan(&self, side: Side) -> &MergePlan {
+        match side {
+            Side::Left => &self.left_plan,
+            Side::Right => &self.right_plan,
+        }
+    }
+
+    fn both_sides_are_files(&self) -> bool {
+        matches!((&self.left, &self.right), (Some(l), Some(r))
+            if l.metadata().source_kind == ArchiveSourceKind::File
+                && r.metadata().source_kind == ArchiveSourceKind::File)
+    }
+
+    fn any_pending(&self) -> bool {
+        !self.left_plan.is_empty() || !self.right_plan.is_empty()
+    }
+
+    /// Legacy single-target lock: only one side may carry pending ops unless both
+    /// sources are standalone files. Returns Err if `side` would violate it.
+    fn ensure_can_stage(&self, side: Side) -> Result<(), String> {
+        if self.both_sides_are_files() {
+            return Ok(());
+        }
+        let other = match side {
+            Side::Left => Side::Right,
+            Side::Right => Side::Left,
+        };
+        if !self.plan(other).is_empty() {
+            return Err(
+                "save or clear unsaved changes before editing the other side".to_owned(),
+            );
+        }
+        Ok(())
+    }
+
     fn install_archive(&mut self, archive: Archive, side: Side) -> Result<ArchiveSummary, String> {
-        if !self.merge_plan.staged().is_empty() {
+        if self.any_pending() {
             return Err("save staged copies before changing an archive".to_owned());
         }
         let summary = summarize(&archive);
@@ -106,25 +148,18 @@ impl AppState {
         if from == to {
             return Err("source and target sides must differ".to_owned());
         }
-        if self.staged_target.is_some_and(|target| target != to) {
-            return Err(
-                "save staged copies before staging changes for the other target".to_owned(),
-            );
-        }
+        self.ensure_can_stage(to)?;
         let source = archive(self, from)
             .ok_or("source archive is not loaded")?
             .clone();
-        self.merge_plan
+        self.plan_mut(to)
             .stage_copy(&source, entry_path, entry_path)
             .map_err(|error| error.to_string())?;
-        self.staged_target = Some(to);
         Ok(())
     }
 
     fn stage_write(&mut self, side: Side, entry_path: &str, content: &str) -> Result<(), String> {
-        if self.staged_target.is_some_and(|target| target != side) {
-            return Err("save unsaved changes before editing the other archive".to_owned());
-        }
+        self.ensure_can_stage(side)?;
         let archive = archive(self, side)
             .ok_or("archive is not loaded")?
             .clone();
@@ -140,10 +175,9 @@ impl AppState {
         }
         let encoding = edit::detect_encoding(&original);
         let new_bytes = edit::encode_text(content, &encoding);
-        self.merge_plan
+        self.plan_mut(side)
             .stage_write(entry_path, new_bytes)
             .map_err(|error| error.to_string())?;
-        self.staged_target = Some(side);
         Ok(())
     }
 
@@ -153,12 +187,6 @@ impl AppState {
         backup: bool,
         confirm_signed: bool,
     ) -> Result<CommitResult, String> {
-        if self
-            .staged_target
-            .is_some_and(|target| target != target_side)
-        {
-            return Err("staged copies belong to the other target archive".to_owned());
-        }
         let target = archive(self, target_side)
             .ok_or("target archive is not loaded")?
             .clone();
@@ -166,10 +194,9 @@ impl AppState {
             return Err("signed archive confirmation is required before save".to_owned());
         }
         let result = self
-            .merge_plan
+            .plan_mut(target_side)
             .commit(&target, CommitOptions { backup })
             .map_err(|error| error.to_string())?;
-        self.staged_target = None;
         *archive_mut(self, target_side) = Some(
             Archive::open(result.rewritten_path.to_string_lossy())
                 .map_err(|error| error.to_string())?,
@@ -188,22 +215,21 @@ impl AppState {
     }
 
     fn clear_staged(&mut self) {
-        self.merge_plan.clear();
-        self.staged_target = None;
+        self.left_plan.clear();
+        self.right_plan.clear();
     }
 
     fn unstage(&mut self, entry_path: &str) -> Result<(), String> {
-        if !self
-            .merge_plan
-            .unstage(entry_path)
-            .map_err(|error| error.to_string())?
-        {
-            return Err("staged entry is not found".to_owned());
+        for side in [Side::Left, Side::Right] {
+            if self
+                .plan_mut(side)
+                .unstage(entry_path)
+                .map_err(|error| error.to_string())?
+            {
+                return Ok(());
+            }
         }
-        if self.merge_plan.staged().is_empty() {
-            self.staged_target = None;
-        }
-        Ok(())
+        Err("staged entry is not found".to_owned())
     }
 }
 
@@ -281,7 +307,7 @@ async fn open_archive(
         let state = state
             .lock()
             .map_err(|_| "state lock is poisoned".to_owned())?;
-        if !state.merge_plan.staged().is_empty() {
+        if state.any_pending() {
             return Err("save staged copies before changing an archive".to_owned());
         }
     }
@@ -983,12 +1009,13 @@ mod tests {
             .stage_copy(Side::Left, Side::Right, "pkg/A.class")
             .unwrap();
 
-        assert_eq!(state.staged_target, Some(Side::Right));
+        assert!(!state.plan(Side::Right).is_empty());
+        assert!(state.plan(Side::Left).is_empty());
         assert!(
             state
                 .stage_copy(Side::Right, Side::Left, "pkg/A.class")
                 .unwrap_err()
-                .contains("other target")
+                .contains("other side")
         );
         assert!(
             state
@@ -1016,8 +1043,7 @@ mod tests {
 
         state.clear_staged();
 
-        assert!(state.merge_plan.staged().is_empty());
-        assert_eq!(state.staged_target, None);
+        assert!(!state.any_pending());
         state
             .load_archive(left.to_str().unwrap(), Side::Left)
             .unwrap();
@@ -1041,8 +1067,7 @@ mod tests {
 
         state.unstage("a.txt").unwrap();
 
-        assert!(state.merge_plan.staged().is_empty());
-        assert_eq!(state.staged_target, None);
+        assert!(!state.any_pending());
         state
             .load_archive(left.to_str().unwrap(), Side::Left)
             .unwrap();
@@ -1080,11 +1105,11 @@ mod tests {
                 .unwrap_err()
                 .contains("confirmation")
         );
-        assert_eq!(state.staged_target, Some(Side::Right));
+        assert!(!state.plan(Side::Right).is_empty());
 
         let result = state.commit_merge(Side::Right, false, true).unwrap();
         assert!(result.signature_invalidated);
-        assert_eq!(state.staged_target, None);
+        assert!(state.plan(Side::Right).is_empty());
     }
 
     #[test]
@@ -1331,10 +1356,30 @@ mod tests {
         state.load_archive(right.to_str().unwrap(), Side::Right).unwrap();
 
         state.stage_write(Side::Left, "config.xml", "<new/>").unwrap();
-        assert_eq!(state.staged_target, Some(Side::Left));
+        assert!(!state.plan(Side::Left).is_empty());
 
         let err = state.stage_write(Side::Right, "config.xml", "<x/>").unwrap_err();
-        assert!(err.contains("other archive"));
+        assert!(err.contains("other side"));
+    }
+
+    #[test]
+    fn file_sources_allow_staging_both_sides() {
+        let dir = tempfile::tempdir().unwrap();
+        let left = dir.path().join("a.txt");
+        let right = dir.path().join("b.txt");
+        std::fs::write(&left, b"a\n").unwrap();
+        std::fs::write(&right, b"b\n").unwrap();
+
+        let mut state = AppState::default();
+        state
+            .install_archive(Archive::open(left.to_string_lossy()).unwrap(), Side::Left)
+            .unwrap();
+        state
+            .install_archive(Archive::open(right.to_string_lossy()).unwrap(), Side::Right)
+            .unwrap();
+
+        state.stage_write(Side::Left, "a.txt", "a2\n").unwrap();
+        state.stage_write(Side::Right, "b.txt", "b2\n").unwrap();
     }
 
     #[test]
@@ -1359,7 +1404,6 @@ mod tests {
 
         state.unstage("a.txt").unwrap();
 
-        assert!(state.merge_plan.staged().is_empty());
-        assert_eq!(state.staged_target, None);
+        assert!(!state.any_pending());
     }
 }
