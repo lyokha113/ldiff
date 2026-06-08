@@ -607,3 +607,171 @@ fn class_with_utf8(value: &str) -> Vec<u8> {
     bytes.extend_from_slice(value.as_bytes());
     bytes
 }
+
+#[test]
+fn resolves_one_and_two_level_nested_entries() {
+    use jdiff_core::NestedArchiveCache;
+
+    let dir = tempdir().unwrap();
+
+    // innermost jar
+    let inner_path = dir.path().join("inner.jar");
+    create_zip(&inner_path, &[("com/A.txt", b"hello-inner")]);
+    let inner_bytes = fs::read(&inner_path).unwrap();
+
+    // middle jar contains inner.jar
+    let middle_path = dir.path().join("middle.jar");
+    create_zip(&middle_path, &[("nested/inner.jar", &inner_bytes)]);
+    let middle_bytes = fs::read(&middle_path).unwrap();
+
+    // outer jar contains middle.jar
+    let outer_path = dir.path().join("outer.jar");
+    create_zip(&outer_path, &[("lib/middle.jar", &middle_bytes)]);
+
+    let root = Archive::open(outer_path.to_string_lossy()).unwrap();
+    let mut cache = NestedArchiveCache::new().unwrap();
+
+    // one level
+    let (arc1, leaf1) = cache
+        .resolve(&root, "lib/middle.jar!/nested/inner.jar")
+        .unwrap();
+    assert_eq!(leaf1, "nested/inner.jar");
+    assert_eq!(arc1.read_entry("nested/inner.jar").unwrap(), inner_bytes);
+
+    // two levels
+    let (arc2, leaf2) = cache
+        .resolve(&root, "lib/middle.jar!/nested/inner.jar!/com/A.txt")
+        .unwrap();
+    assert_eq!(leaf2, "com/A.txt");
+    assert_eq!(arc2.read_entry("com/A.txt").unwrap(), b"hello-inner");
+
+    // top-level (no separator) returns root + whole path
+    let (arc0, leaf0) = cache.resolve(&root, "lib/middle.jar").unwrap();
+    assert_eq!(leaf0, "lib/middle.jar");
+    assert!(arc0.entry("lib/middle.jar").is_some());
+}
+
+#[test]
+fn resolve_archive_opens_nested_archive_directly() {
+    use jdiff_core::NestedArchiveCache;
+
+    let dir = tempdir().unwrap();
+    let inner_path = dir.path().join("inner.jar");
+    create_zip(&inner_path, &[("x.txt", b"xx")]);
+    let inner_bytes = fs::read(&inner_path).unwrap();
+    let outer_path = dir.path().join("outer.jar");
+    create_zip(&outer_path, &[("lib/inner.jar", &inner_bytes)]);
+
+    let root = Archive::open(outer_path.to_string_lossy()).unwrap();
+    let mut cache = NestedArchiveCache::new().unwrap();
+    let arc = cache.resolve_archive(&root, "lib/inner.jar").unwrap();
+    assert_eq!(arc.read_entry("x.txt").unwrap(), b"xx");
+}
+
+#[test]
+fn rewrite_zip_bytes_replaces_entry() {
+    use jdiff_core::{read_zip_entry_from_bytes, rewrite_zip_bytes};
+    use std::collections::BTreeMap;
+
+    let dir = tempdir().unwrap();
+    let jar = dir.path().join("a.jar");
+    create_zip(&jar, &[("keep.txt", b"keep"), ("swap.txt", b"old")]);
+    let bytes = fs::read(&jar).unwrap();
+
+    let mut repl = BTreeMap::new();
+    repl.insert("swap.txt".to_owned(), b"new".to_vec());
+    let out = rewrite_zip_bytes(&bytes, &repl).unwrap();
+
+    assert_eq!(
+        read_zip_entry_from_bytes(&out, "keep.txt").unwrap(),
+        b"keep"
+    );
+    assert_eq!(read_zip_entry_from_bytes(&out, "swap.txt").unwrap(), b"new");
+}
+
+#[test]
+fn commit_copies_entry_into_nested_jar() {
+    use jdiff_core::read_zip_entry_from_bytes;
+
+    let dir = tempdir().unwrap();
+
+    // SOURCE side: top-level file payload.txt to copy into target's nested jar.
+    let source_path = dir.path().join("source.jar");
+    create_zip(&source_path, &[("payload.txt", b"NEW-PAYLOAD")]);
+    let source = Archive::open(source_path.to_string_lossy()).unwrap();
+
+    // TARGET side: contains lib/inner.jar which contains docs/old.txt.
+    let inner_path = dir.path().join("inner.jar");
+    create_zip(&inner_path, &[("docs/old.txt", b"OLD")]);
+    let inner_bytes = fs::read(&inner_path).unwrap();
+    let target_path = dir.path().join("target.jar");
+    create_zip(&target_path, &[("lib/inner.jar", &inner_bytes)]);
+    let target = Archive::open(target_path.to_string_lossy()).unwrap();
+
+    // Stage: copy source payload.txt -> target lib/inner.jar!/docs/new.txt
+    let mut plan = MergePlan::new();
+    plan.stage_copy(&source, "payload.txt", "lib/inner.jar!/docs/new.txt")
+        .unwrap();
+    let result = plan.commit(&target, CommitOptions::default()).unwrap();
+    assert_eq!(result.copied_entries, 1);
+
+    // Reopen target, extract lib/inner.jar, assert it now holds docs/new.txt.
+    let rewritten = Archive::open(target_path.to_string_lossy()).unwrap();
+    let inner_after = rewritten.read_entry("lib/inner.jar").unwrap();
+    assert_eq!(
+        read_zip_entry_from_bytes(&inner_after, "docs/new.txt").unwrap(),
+        b"NEW-PAYLOAD"
+    );
+    assert_eq!(
+        read_zip_entry_from_bytes(&inner_after, "docs/old.txt").unwrap(),
+        b"OLD"
+    );
+}
+
+#[test]
+fn commit_copies_entry_two_levels_deep() {
+    use jdiff_core::read_zip_entry_from_bytes;
+
+    let dir = tempdir().unwrap();
+
+    // SOURCE: top-level payload to copy in.
+    let source_path = dir.path().join("source.jar");
+    create_zip(&source_path, &[("payload.txt", b"DEEP-PAYLOAD")]);
+    let source = Archive::open(source_path.to_string_lossy()).unwrap();
+
+    // TARGET: outer.jar -> lib/middle.jar -> nested/inner.jar -> com/old.txt
+    let inner_path = dir.path().join("inner.jar");
+    create_zip(&inner_path, &[("com/old.txt", b"OLD")]);
+    let inner_bytes = fs::read(&inner_path).unwrap();
+    let middle_path = dir.path().join("middle.jar");
+    create_zip(&middle_path, &[("nested/inner.jar", &inner_bytes)]);
+    let middle_bytes = fs::read(&middle_path).unwrap();
+    let target_path = dir.path().join("outer.jar");
+    create_zip(&target_path, &[("lib/middle.jar", &middle_bytes)]);
+    let target = Archive::open(target_path.to_string_lossy()).unwrap();
+
+    // Stage two levels deep.
+    let mut plan = MergePlan::new();
+    plan.stage_copy(
+        &source,
+        "payload.txt",
+        "lib/middle.jar!/nested/inner.jar!/com/new.txt",
+    )
+    .unwrap();
+    let result = plan.commit(&target, CommitOptions::default()).unwrap();
+    assert_eq!(result.copied_entries, 1);
+    assert!(result.signature_invalidated); // nested rewrite flags it
+
+    // Unwind: outer -> middle -> inner must hold the new entry + preserve old.
+    let rewritten = Archive::open(target_path.to_string_lossy()).unwrap();
+    let middle_after = rewritten.read_entry("lib/middle.jar").unwrap();
+    let inner_after = read_zip_entry_from_bytes(&middle_after, "nested/inner.jar").unwrap();
+    assert_eq!(
+        read_zip_entry_from_bytes(&inner_after, "com/new.txt").unwrap(),
+        b"DEEP-PAYLOAD"
+    );
+    assert_eq!(
+        read_zip_entry_from_bytes(&inner_after, "com/old.txt").unwrap(),
+        b"OLD"
+    );
+}

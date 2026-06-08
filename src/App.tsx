@@ -38,18 +38,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ConfigDrawer } from "@/components/ConfigDrawer";
 import { MenuBar } from "@/components/MenuBar";
 import { SourceChips } from "@/components/SourceChips";
 import { SearchBar } from "@/components/SearchBar";
 import { DiffView, pairHasClass } from "@/components/DiffView";
+import { type DiffTab, evictLru, pickNeighbor, upsertTab } from "@/lib/tabs";
+import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { FileTree } from "@/components/FileTree";
+import { pairPassesTreeFilter } from "@/lib/tree";
 import { SplashScreen } from "@/components/SplashScreen";
 import {
   type HistoryEntry,
@@ -64,16 +62,10 @@ function isTauriRuntime() {
 
 const emptyPaths: Record<Side, string> = { left: "", right: "" };
 
+const MAX_DIFF_TABS = 10;
+
 function searchResultKey(result: SearchResult) {
   return `${result.tier}:${result.side}:${result.path}:${result.matchKind}:${result.line ?? ""}`;
-}
-
-function pairPassesTreeFilter(pair: ComparePair, filter: TreeFilter) {
-  return (
-    filter === "all" ||
-    (filter === "differences" && pair.status !== "identical") ||
-    pair.status === filter
-  );
 }
 
 function applySearchLineHighlight(
@@ -107,6 +99,7 @@ export function App() {
   const [pathErrors, setPathErrors] = useState<Partial<Record<Side, string>>>({});
   const [archives, setArchives] = useState<Partial<Record<Side, ArchiveSummary>>>({});
   const [pairs, setPairs] = useState<ComparePair[]>([]);
+  const [nestedPairs, setNestedPairs] = useState<Record<string, ComparePair[]>>({});
   const [selected, setSelected] = useState<ComparePair>();
   const [preview, setPreview] = useState<Partial<Record<Side, EntryPreview>>>({});
   const [message, setMessage] = useState("Open a JAR, ZIP, or folder on each side.");
@@ -128,10 +121,15 @@ export function App() {
   const [searching, setSearching] = useState(false);
   const [dropHint, setDropHint] = useState("");
   const [signedSavePrompt, setSignedSavePrompt] = useState<Side>();
+  const [pendingOpen, setPendingOpen] = useState<{ side: Side; path: string }>();
   const [suppressSignedWarningForFile, setSuppressSignedWarningForFile] = useState(false);
   const [signedWarningSuppressions, setSignedWarningSuppressions] = useState<Record<string, boolean>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<"files" | string>("files");
+  const [openTabs, setOpenTabs] = useState<DiffTab[]>([]);
+  const focusCounter = useRef(0);
+  const openTabsCountRef = useRef(0);
   const previewRequestId = useRef(0);
   const searchStreamId = useRef(0);
   const editorRef = useRef<CodeEditor | undefined>(undefined);
@@ -168,13 +166,28 @@ export function App() {
     try {
       const diff = await invoke<ArchiveDiff>("compute_diff");
       setPairs(diff.pairs);
+      setNestedPairs({});
     } catch {
       setPairs([]);
+      setNestedPairs({});
     }
   }, []);
 
-  const openPath = useCallback(async (side: Side, path: string) => {
+  const expandArchive = useCallback(async (fullPath: string) => {
     try {
+      const diff = await invoke<ArchiveDiff>("compute_nested_diff", { nestedPath: fullPath });
+      setNestedPairs((prev) => ({ ...prev, [fullPath]: diff.pairs }));
+    } catch (error) {
+      setMessage(String(error));
+    }
+  }, []);
+
+  const openPath = useCallback(async (side: Side, path: string, confirmed = false) => {
+    try {
+      if (!confirmed && openTabsCountRef.current > 0) {
+        setPendingOpen({ side, path });
+        return undefined;
+      }
       const validatedPath = await invoke<string>("validate_path", { raw: path });
       const archive = await invoke<ArchiveSummary>("open_archive", { path: validatedPath, side });
       previewRequestId.current += 1;
@@ -184,6 +197,8 @@ export function App() {
       setPathErrors((current) => ({ ...current, [side]: undefined }));
       setArchives((current) => ({ ...current, [side]: archive }));
       setSelected(undefined);
+      setActiveTab("files");
+      setOpenTabs([]);
       setPreview({});
       setSearchPaths(undefined);
       setSearchResults([]);
@@ -198,6 +213,10 @@ export function App() {
       return message;
     }
   }, [refreshDiff]);
+
+  useEffect(() => {
+    openTabsCountRef.current = openTabs.length;
+  }, [openTabs]);
 
   useEffect(() => {
     if (view !== "workspace") return;
@@ -312,6 +331,13 @@ export function App() {
     }
   }, [mode, preview.left?.content, preview.right?.content, selected?.path, selectedSearchResult]);
 
+  useEffect(() => {
+    if (activeTab === "files" || !selected) return;
+    setOpenTabs((prev) =>
+      prev.map((t) => (t.path === activeTab ? { ...t, pair: selected, preview, viewMode } : t)),
+    );
+  }, [activeTab, selected, preview, viewMode]);
+
   async function browse(side: Side) {
     const path = await chooseFile({
       multiple: false,
@@ -328,10 +354,28 @@ export function App() {
     if (path) await openPath(side, path);
   }
 
-  async function inspect(pair: ComparePair) {
+  function focusTab(path: string) {
+    const tab = openTabs.find((t) => t.path === path);
+    if (!tab) return;
+    focusCounter.current += 1;
+    const stamp = focusCounter.current;
+    setSelected(tab.pair);
+    setPreview(tab.preview);
+    setViewMode(tab.viewMode);
+    setActiveTab(path);
+    setOpenTabs((prev) => prev.map((t) => (t.path === path ? { ...t, lastFocus: stamp } : t)));
+  }
+
+  async function inspect(pair: ComparePair, force = false) {
+    const existing = openTabs.find((t) => t.path === pair.path);
+    if (existing && !force) {
+      focusTab(pair.path);
+      return;
+    }
     const requestId = previewRequestId.current + 1;
     previewRequestId.current = requestId;
     setSelected(pair);
+    setActiveTab(pair.path);
     setViewMode("source");
     const next: Partial<Record<Side, EntryPreview>> = {};
     for (const side of ["left", "right"] as const) {
@@ -341,8 +385,16 @@ export function App() {
     }
     if (previewRequestId.current !== requestId) return;
     setPreview(next);
+    focusCounter.current += 1;
+    const stamp = focusCounter.current;
+    setOpenTabs((prev) =>
+      evictLru(
+        upsertTab(prev, { path: pair.path, pair, preview: next, viewMode: "source", lastFocus: stamp }),
+        MAX_DIFF_TABS,
+      ),
+    );
     for (const side of ["left", "right"] as const) {
-      if (pair[side]?.kind === "class") {
+      if (pair[side]?.kind === "class" && !pair.path.includes("!/")) {
         void invoke("prefetch_siblings", { side, entryPath: pair.path });
       }
     }
@@ -359,6 +411,18 @@ export function App() {
         current.map((candidate) => (candidate.path === pair.path ? metadataOnly : candidate)),
       );
     }
+  }
+
+  function closeTab(path: string) {
+    if (activeTab === path) {
+      const next = pickNeighbor(openTabs, path);
+      if (next === "files") {
+        setActiveTab("files");
+      } else {
+        focusTab(next);
+      }
+    }
+    setOpenTabs((prev) => prev.filter((t) => t.path !== path));
   }
 
   async function showBytecode() {
@@ -393,7 +457,7 @@ export function App() {
   async function changeEngine(next: Engine) {
     await invoke("set_engine", { engine: next });
     setEngine(next);
-    if (selected) await inspect(selected);
+    if (selected) await inspect(selected, true);
   }
 
   function pickMode(next: Mode) {
@@ -405,10 +469,10 @@ export function App() {
     setMode(entry.mode);
     setView("workspace");
     if (entry.mode === "single") {
-      void openPath("left", entry.paths[0]);
+      void openPath("left", entry.paths[0], true);
     } else {
-      void openPath("left", entry.paths[0]).then(() =>
-        openPath("right", entry.paths[1]),
+      void openPath("left", entry.paths[0], true).then(() =>
+        openPath("right", entry.paths[1], true),
       );
     }
   }
@@ -461,7 +525,7 @@ export function App() {
       const saveMessage =
         `Saved ${result.copiedEntries} entries to ${result.rewrittenPath}` +
         (result.signatureInvalidated ? " (signed archive is now invalid)" : "");
-      const reloadError = await openPath(targetSide, result.rewrittenPath);
+      const reloadError = await openPath(targetSide, result.rewrittenPath, true);
       setMessage(reloadError ? `${saveMessage}; reload failed: ${reloadError}` : saveMessage);
     } catch (error) {
       setMessage(String(error));
@@ -636,21 +700,31 @@ export function App() {
       {dropHint && <p className="platform-hint">{dropHint}</p>}
       <div className="work-area">
         <section className="workspace">
-          <ResizablePanelGroup orientation="vertical" className="workspace-panels">
-            <ResizablePanel defaultSize={44} minSize={25}>
+          <WorkspaceTabs
+            fileCount={visiblePairs.length}
+            activeId={activeTab}
+            tabs={openTabs.map((t) => ({ path: t.path, status: t.pair.status }))}
+            onSelectFiles={() => setActiveTab("files")}
+            onSelectTab={(path) => focusTab(path)}
+            onCloseTab={(path) => closeTab(path)}
+          />
+          <div className="workspace-tabpanels">
+            <div className="workspace-tabpanel" role="tabpanel" hidden={activeTab !== "files"}>
               <FileTree
                 visiblePairs={visiblePairs}
                 selected={selected}
                 stagedEntries={stagedEntries}
                 mode={mode}
+                treeFilter={treeFilter}
+                nestedPairs={nestedPairs}
                 onInspect={(pair) => { setSelectedSearchResult(undefined); void inspect(pair); }}
                 onSelect={(pair) => { setSelectedSearchResult(undefined); setSelected(pair); }}
                 onCopy={(from, to, pair) => void copy(from, to, pair)}
                 onUnstage={(entryPath) => void unstage(entryPath)}
+                onExpandArchive={(fullPath) => void expandArchive(fullPath)}
               />
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={56} minSize={30}>
+            </div>
+            <div className="workspace-tabpanel" role="tabpanel" hidden={activeTab === "files"}>
               <DiffView
                 mode={mode}
                 selected={selected}
@@ -658,13 +732,13 @@ export function App() {
                 viewMode={viewMode}
                 ignoreTrimWhitespace={ignoreTrimWhitespace}
                 onCopy={(from, to) => void copy(from, to)}
-                onShowSource={() => selected && void inspect(selected)}
+                onShowSource={() => selected && void inspect(selected, true)}
                 onShowBytecode={showBytecode}
                 onEditorMount={handleEditorMount}
                 onDiffMount={handleDiffMount}
               />
-            </ResizablePanel>
-          </ResizablePanelGroup>
+            </div>
+          </div>
         </section>
         <ConfigDrawer
           open={drawerOpen}
@@ -698,6 +772,28 @@ export function App() {
           ))}
         </section>
       )}
+      <Dialog open={pendingOpen !== undefined} onOpenChange={(open) => !open && setPendingOpen(undefined)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Close open diffs?</DialogTitle>
+            <DialogDescription>
+              Opening a new archive will close your {openTabs.length} open diff{openTabs.length === 1 ? "" : "s"} and reset the comparison.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingOpen(undefined)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                const target = pendingOpen;
+                setPendingOpen(undefined);
+                if (target) void openPath(target.side, target.path, true);
+              }}
+            >
+              Open anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={signedSavePrompt !== undefined} onOpenChange={(open) => !open && setSignedSavePrompt(undefined)}>
         <DialogContent>
           <DialogHeader>

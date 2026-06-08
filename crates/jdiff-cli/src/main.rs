@@ -77,7 +77,7 @@ fn main() -> anyhow::Result<()> {
                                 .to_ascii_lowercase()
                                 .contains(&query_lower)
                         }
-                        EntryKind::Directory | EntryKind::Binary => false,
+                        EntryKind::Directory | EntryKind::Binary | EntryKind::Archive => false,
                     }
                 };
                 if path_match || payload_match {

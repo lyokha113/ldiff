@@ -2,6 +2,7 @@ import { ArrowLeftRight, FileText, Folder, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ArchiveSummary, Mode, Side } from "@/lib/types";
 
 interface SourceChipsProps {
@@ -16,11 +17,6 @@ interface SourceChipsProps {
   onSave: (side: Side) => void;
 }
 
-function basename(path: string) {
-  const parts = path.split(/[\\/]/);
-  return parts[parts.length - 1] || path;
-}
-
 export function SourceChips({
   mode, archives, paths, pathErrors, onPathChange, onOpenPath, onBrowse, onBrowseFolder, onSave,
 }: SourceChipsProps) {
@@ -33,11 +29,21 @@ export function SourceChips({
           <span className="chip-wrap" key={side}>
             {index === 1 && <ArrowLeftRight className="chip-sep" aria-hidden="true" />}
             <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="source-chip" aria-label={`Change ${side} source`}>
-                  <Package /> {archive ? basename(archive.path) : `${side.toUpperCase()} — no source`}
-                </Button>
-              </PopoverTrigger>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="source-chip" aria-label={`Change ${side} source`}>
+                      <Package />
+                      <span className="source-chip-path">
+                        {archive ? archive.path : `${side.toUpperCase()} — no source`}
+                      </span>
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="source-chip-tip">{archive ? archive.path : `${side.toUpperCase()} — no source loaded`}</p>
+                </TooltipContent>
+              </Tooltip>
               <PopoverContent>
                 <div className="repick">
                   <strong>{side.toUpperCase()}</strong>

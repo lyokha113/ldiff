@@ -15,14 +15,14 @@ interface SplashScreenProps {
 function EntryPaths({ entry }: { entry: HistoryEntry }) {
   if (entry.mode === "compare") {
     return (
-      <>
-        <span>{entry.paths[0]}</span>
-        <span aria-hidden="true"> ↔ </span>
-        <span>{entry.paths[1]}</span>
-      </>
+      <span className="splash-history-pair">
+        <span className="splash-history-line" title={entry.paths[0]}>{entry.paths[0]}</span>
+        <span className="splash-history-arrow" aria-hidden="true">↔</span>
+        <span className="splash-history-line" title={entry.paths[1]}>{entry.paths[1]}</span>
+      </span>
     );
   }
-  return <span>{entry.paths[0]}</span>;
+  return <span className="splash-history-line" title={entry.paths[0]}>{entry.paths[0]}</span>;
 }
 
 export function SplashScreen({

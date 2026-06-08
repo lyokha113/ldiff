@@ -262,6 +262,13 @@ try {
     await archiveInput().waitFor({ state: "detached", timeout: 5_000 });
   }
 
+  // Tree and diff now live on separate workspace tabs; opening an entry switches
+  // to the Diff tab and hides the tree, so return to the Files tab before any
+  // tree-row interaction.
+  async function showFilesTab() {
+    await mockedPage.getByRole("tab", { name: /Files/ }).click();
+  }
+
   // Bad-path error shows inside the open left Popover as <small class="path-error">.
   await openLeftPopover();
   await archiveInput().fill("/fixtures/not-a-zip.jar");
@@ -303,12 +310,15 @@ try {
   await mockedPage.getByRole("button", { name: "Clear search" }).click();
 
   // Metadata-only detection: identical decompiled source -> differentMetadataOnly badge.
+  await showFilesTab();
   const metadataRow = mockedPage.locator(".tree-file", { hasText: "Meta.class" });
   await metadataRow.waitFor({ timeout: 5_000 });
   await metadataRow.click({ force: true });
   await mockedPage.locator("text=class MetaSameSource").first().waitFor({ timeout: 10_000 });
+  await showFilesTab();
   await mockedPage.locator(".tree-file.differentMetadataOnly", { hasText: "Meta.class" }).waitFor({ timeout: 10_000 });
 
+  await showFilesTab();
   const appRow = mockedPage.locator(".tree-file", { hasText: "App.class" });
   await appRow.waitFor({ timeout: 5_000 });
   await appRow.click();
@@ -326,9 +336,11 @@ try {
   await copyRightButton.waitFor({ timeout: 5_000 });
   await copyRightButton.click();
   await mockedPage.locator(".menu-bar").locator("text=→ right").waitFor({ timeout: 10_000 });
+  await showFilesTab();
   await mockedPage.locator("text=pending → right").waitFor({ timeout: 10_000 });
 
   // Unstage via context menu: badges disappear.
+  await showFilesTab();
   await appRow.click({ button: "right" });
   const unstageMenuItem = mockedPage.getByRole("menuitem", { name: "Unstage" });
   await unstageMenuItem.waitFor({ timeout: 5_000 });
@@ -341,12 +353,15 @@ try {
 
   // Re-stage. The copy button is enabled only once the pair is selected, so a
   // plain (non-forced) click auto-waits for that precondition.
+  await showFilesTab();
   await appRow.click();
   await copyRightButton.click();
   await mockedPage.locator(".menu-bar").locator("text=→ right").waitFor({ timeout: 10_000 });
+  await showFilesTab();
   await mockedPage.locator("text=pending → right").waitFor({ timeout: 10_000 });
 
   // Binary preview details + hex dump.
+  await showFilesTab();
   const binaryRow = mockedPage.locator(".tree-file", { hasText: "blob.bin" });
   await binaryRow.click();
   await mockedPage.locator("text=LEFT: Binary · 4 bytes · SHA-256 left-sha · CRC32 11111111").waitFor({ timeout: 5_000 });
@@ -387,6 +402,7 @@ try {
   // for staging; a save reloads the archive and resets the selection, so re-select
   // and confirm the copy button is enabled before each stage.
   async function selectAppAndStageRight() {
+    await showFilesTab();
     await compareAppRow.waitFor({ state: "visible", timeout: 5_000 });
     await compareAppRow.click({ force: true });
     await copyRightButton.click(); // auto-waits for enabled (selection committed)

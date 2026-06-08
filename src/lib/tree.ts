@@ -1,4 +1,4 @@
-import type { ComparePair } from "@/lib/types";
+import type { ComparePair, TreeFilter } from "@/lib/types";
 
 export interface TreeFolder {
   kind: "folder";
@@ -81,4 +81,16 @@ function finalize(folder: MutableFolder, fileLists: Map<MutableFolder, TreeFile[
     }));
   const files = (fileLists.get(folder) ?? []).sort((a, b) => a.name.localeCompare(b.name));
   return [...folders, ...files];
+}
+
+export function isArchiveKind(pair: ComparePair): boolean {
+  return pair.left?.kind === "archive" || pair.right?.kind === "archive";
+}
+
+export function pairPassesTreeFilter(pair: ComparePair, filter: TreeFilter): boolean {
+  return (
+    filter === "all" ||
+    (filter === "differences" && pair.status !== "identical") ||
+    pair.status === filter
+  );
 }

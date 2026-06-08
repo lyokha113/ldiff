@@ -8,7 +8,7 @@ use std::{
 
 use jdiff_core::{
     Archive, ArchiveDiff, ArchiveEntry, ArchiveMetadata, CommitOptions, CommitResult,
-    DecompileEngine, EntryKind, MergePlan, compare, search_constant_pool,
+    DecompileEngine, EntryKind, MergePlan, NestedArchiveCache, compare, search_constant_pool,
     validate_path as validate_archive_path,
 };
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,8 @@ impl Side {
 struct AppState {
     left: Option<Archive>,
     right: Option<Archive>,
+    left_nested: NestedArchiveCache,
+    right_nested: NestedArchiveCache,
     merge_plan: MergePlan,
     staged_target: Option<Side>,
     engine: DecompileEngine,
@@ -64,6 +66,8 @@ impl AppState {
         Self {
             left: None,
             right: None,
+            left_nested: NestedArchiveCache::new().expect("temp dir for nested cache"),
+            right_nested: NestedArchiveCache::new().expect("temp dir for nested cache"),
             merge_plan: MergePlan::new(),
             staged_target: None,
             engine: DecompileEngine::Cfr,
@@ -87,6 +91,14 @@ impl AppState {
         }
         let summary = summarize(&archive);
         *archive_mut(self, side) = Some(archive);
+        match side {
+            Side::Left => {
+                self.left_nested = NestedArchiveCache::new().map_err(|e| e.to_string())?
+            }
+            Side::Right => {
+                self.right_nested = NestedArchiveCache::new().map_err(|e| e.to_string())?
+            }
+        }
         Ok(summary)
     }
 
@@ -136,6 +148,16 @@ impl AppState {
             Archive::open(result.rewritten_path.to_string_lossy())
                 .map_err(|error| error.to_string())?,
         );
+        // The target (and any nested archives inside it) changed on disk; drop
+        // the stale extractions so a re-expand reflects the committed contents.
+        match target_side {
+            Side::Left => {
+                self.left_nested = NestedArchiveCache::new().map_err(|e| e.to_string())?
+            }
+            Side::Right => {
+                self.right_nested = NestedArchiveCache::new().map_err(|e| e.to_string())?
+            }
+        }
         Ok(result)
     }
 
@@ -265,25 +287,74 @@ async fn compute_diff(state: State<'_, SharedState>) -> Result<ArchiveDiff, Stri
 }
 
 #[tauri::command]
+async fn compute_nested_diff(
+    nested_path: String,
+    state: State<'_, SharedState>,
+) -> Result<ArchiveDiff, String> {
+    let left = nested_side_archive(&state, Side::Left, &nested_path);
+    let right = nested_side_archive(&state, Side::Right, &nested_path);
+    match (left, right) {
+        (None, None) => Err("nested archive is not present on either side".to_owned()),
+        (Some(left), Some(right)) => {
+            tauri::async_runtime::spawn_blocking(move || Ok(compare(&left, &right)))
+                .await
+                .map_err(|error| error.to_string())?
+        }
+        (Some(only), None) => Ok(one_sided_diff(&only, Side::Left)),
+        (None, Some(only)) => Ok(one_sided_diff(&only, Side::Right)),
+    }
+}
+
+fn nested_side_archive(state: &SharedState, side: Side, nested_path: &str) -> Option<Archive> {
+    let mut state = state.lock().ok()?;
+    let root = archive(&state, side)?.clone();
+    nested_cache_mut(&mut state, side)
+        .resolve_archive(&root, nested_path)
+        .ok()
+}
+
+fn one_sided_diff(archive: &Archive, side: Side) -> ArchiveDiff {
+    use jdiff_core::{ComparePair, PairStatus};
+    let pairs = archive
+        .entries()
+        .map(|entry| {
+            let entry = entry.clone();
+            match side {
+                Side::Left => ComparePair {
+                    path: entry.path.clone(),
+                    left: Some(entry),
+                    right: None,
+                    status: PairStatus::OnlyLeft,
+                },
+                Side::Right => ComparePair {
+                    path: entry.path.clone(),
+                    left: None,
+                    right: Some(entry),
+                    status: PairStatus::OnlyRight,
+                },
+            }
+        })
+        .collect();
+    ArchiveDiff { pairs }
+}
+
+#[tauri::command]
 async fn read_entry(
     side: Side,
     entry_path: String,
     state: State<'_, SharedState>,
 ) -> Result<EntryPreview, String> {
-    let (archive, engine, sidecar) = {
-        let state = state
+    let (archive, leaf, engine, sidecar) = {
+        let mut state = state
             .lock()
             .map_err(|_| "state lock is poisoned".to_owned())?;
-        (
-            archive(&state, side)
-                .ok_or("archive is not loaded")?
-                .clone(),
-            state.engine,
-            Arc::clone(&state.sidecar),
-        )
+        let engine = state.engine;
+        let sidecar = Arc::clone(&state.sidecar);
+        let (archive, leaf) = resolve_side_entry(&mut state, side, &entry_path)?;
+        (archive, leaf, engine, sidecar)
     };
     tauri::async_runtime::spawn_blocking(move || {
-        read_entry_preview(&archive, engine, &sidecar, entry_path)
+        read_entry_preview(&archive, engine, &sidecar, leaf)
     })
     .await
     .map_err(|error| error.to_string())?
@@ -331,7 +402,7 @@ fn read_entry_preview(
                 .decompile(engine, archive_path, source_path)
                 .unwrap_or_else(|error| format!("Decompiler unavailable: {error}")),
         ),
-        EntryKind::Binary => (
+        EntryKind::Binary | EntryKind::Archive => (
             "plaintext",
             Some(format!(
                 "Binary · {} bytes · SHA-256 {} · CRC32 {:08x}",
@@ -368,15 +439,13 @@ async fn disassemble(
     state: State<'_, SharedState>,
 ) -> Result<String, String> {
     let (archive_path, source_path, sidecar) = {
-        let state = state
+        let mut state = state
             .lock()
             .map_err(|_| "state lock is poisoned".to_owned())?;
-        let archive = archive(&state, side).ok_or("archive is not loaded")?;
-        (
-            archive.path().display().to_string(),
-            class_source_path(archive, &entry_path)?,
-            Arc::clone(&state.sidecar),
-        )
+        let sidecar = Arc::clone(&state.sidecar);
+        let (archive, leaf) = resolve_side_entry(&mut state, side, &entry_path)?;
+        let source_path = class_source_path(&archive, &leaf)?;
+        (archive.path().display().to_string(), source_path, sidecar)
     };
     tauri::async_runtime::spawn_blocking(move || {
         sidecar
@@ -498,7 +567,7 @@ fn search_archive(archive: &Archive, query: &str) -> Result<Vec<SearchHit>, Stri
                     line_number_for_match(&String::from_utf8_lossy(&bytes), &query_lower)
                         .map(|line| SearchHit::new(entry.path.clone(), "text").with_line(line))
                 }
-                EntryKind::Directory | EntryKind::Binary => None,
+                EntryKind::Directory | EntryKind::Binary | EntryKind::Archive => None,
             };
         }
         if let Some(hit) = hit {
@@ -734,6 +803,27 @@ fn archive_mut(state: &mut AppState, side: Side) -> &mut Option<Archive> {
     }
 }
 
+fn nested_cache_mut(state: &mut AppState, side: Side) -> &mut NestedArchiveCache {
+    match side {
+        Side::Left => &mut state.left_nested,
+        Side::Right => &mut state.right_nested,
+    }
+}
+
+/// Resolve a (possibly nested) entry path for `side` to its innermost archive
+/// (a clone) plus the leaf entry path. Clones the root first so the cache
+/// borrow does not conflict with the archive borrow.
+fn resolve_side_entry(
+    state: &mut AppState,
+    side: Side,
+    entry_path: &str,
+) -> Result<(Archive, String), String> {
+    let root = archive(state, side).ok_or("archive is not loaded")?.clone();
+    nested_cache_mut(state, side)
+        .resolve(&root, entry_path)
+        .map_err(|error| error.to_string())
+}
+
 fn summarize(archive: &Archive) -> ArchiveSummary {
     ArchiveSummary {
         path: archive.path().display().to_string(),
@@ -804,6 +894,7 @@ fn main() {
             platform_hints,
             open_archive,
             compute_diff,
+            compute_nested_diff,
             read_entry,
             set_engine,
             disassemble,
