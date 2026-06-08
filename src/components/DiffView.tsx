@@ -23,12 +23,15 @@ interface DiffViewProps {
   editValue: string;
   onEditChange: (value: string | undefined) => void;
   onEditBlur: (content: string) => void;
+  fileMerge: boolean;
+  onDiffEditEither: (side: Side, content: string) => void;
 }
 
 export function DiffView({
   mode, selected, preview, viewMode, ignoreTrimWhitespace,
   onCopy, onShowSource, onShowBytecode, onEditorMount, onDiffMount,
   editable, editValue, onEditChange, onEditBlur,
+  fileMerge, onDiffEditEither,
 }: DiffViewProps) {
   return (
     <div className="editor-panel">
@@ -94,8 +97,26 @@ export function DiffView({
             original={preview.left?.content ?? ""}
             modified={preview.right?.content ?? ""}
             theme="vs-dark"
-            options={{ readOnly: true, minimap: { enabled: false }, renderSideBySide: true, useInlineViewWhenSpaceIsLimited: true, renderSideBySideInlineBreakpoint: 720, automaticLayout: true, ignoreTrimWhitespace }}
-            onMount={onDiffMount}
+            options={{
+              readOnly: !fileMerge,
+              originalEditable: fileMerge,
+              renderMarginRevertIcon: fileMerge,
+              minimap: { enabled: false },
+              renderSideBySide: true,
+              useInlineViewWhenSpaceIsLimited: true,
+              renderSideBySideInlineBreakpoint: 720,
+              automaticLayout: true,
+              ignoreTrimWhitespace,
+            }}
+            onMount={(editor, monaco) => {
+              onDiffMount(editor, monaco);
+              if (fileMerge) {
+                const orig = editor.getOriginalEditor();
+                const mod = editor.getModifiedEditor();
+                orig.onDidBlurEditorText(() => onDiffEditEither("left", orig.getValue()));
+                mod.onDidBlurEditorText(() => onDiffEditEither("right", mod.getValue()));
+              }
+            }}
           />
         ) : (
           <Editor

@@ -566,16 +566,26 @@ export function App() {
     setMessage("Cleared unsaved changes.");
   }
 
-  async function unstage(entryPath: string) {
+  async function unstage(key: string) {
+    // File-merge staging uses side-prefixed keys ("left:<path>"/"right:<path>");
+    // archive/folder staging uses bare path keys. The backend `unstage` takes a
+    // bare entryPath, so strip any prefix for the IPC call. A bare key has no
+    // prefix, so the replace is a no-op and the existing archive flow is
+    // unaffected. For local state removal we drop every stored entry whose bare
+    // form matches — callers may hand us either the prefixed key or the bare
+    // display path (MenuBar shows bare paths), so match on the bare form.
+    const bare = key.replace(/^(left|right):/, "");
     try {
-      await invoke("unstage", { entryPath });
+      await invoke("unstage", { entryPath: bare });
       setStagedEntries((current) => {
         const next = { ...current };
-        delete next[entryPath];
+        for (const k of Object.keys(next)) {
+          if (k.replace(/^(left|right):/, "") === bare) delete next[k];
+        }
         if (Object.keys(next).length === 0) setStagedTarget(undefined);
         return next;
       });
-      setMessage(`Unstaged ${entryPath}.`);
+      setMessage(`Unstaged ${bare}.`);
     } catch (error) {
       setMessage(String(error));
     }
@@ -600,6 +610,19 @@ export function App() {
       setStagedEntries((current) => ({ ...current, [entryPath]: { side: "left", kind: "edit" } }));
       setStagedTarget("left");
       setMessage(`Edited ${entryPath} (unsaved)`);
+    } catch (error) {
+      setMessage(String(error));
+    }
+  }
+
+  async function stageFileSide(side: Side, content: string) {
+    if (!selected) return;
+    const original = (side === "left" ? preview.left?.content : preview.right?.content) ?? "";
+    if (content === original) return;
+    try {
+      await invoke("stage_write", { side, entryPath: selected.path, content });
+      setStagedEntries((current) => ({ ...current, [`${side}:${selected.path}`]: { side, kind: "edit" } }));
+      setMessage(`Edited ${selected.path} on ${side} (unsaved)`);
     } catch (error) {
       setMessage(String(error));
     }
@@ -701,6 +724,11 @@ export function App() {
     );
   }
 
+  const isFileMerge =
+    mode === "compare" &&
+    archives.left?.metadata.sourceKind === "file" &&
+    archives.right?.metadata.sourceKind === "file";
+
   const isEditableEntry =
     mode === "single" &&
     viewMode === "source" &&
@@ -715,7 +743,7 @@ export function App() {
       <MenuBar
         mode={mode}
         stagedTarget={stagedTarget}
-        pendingOps={Object.entries(stagedEntries).map(([path, entry]) => ({ path, side: entry.side, kind: entry.kind }))}
+        pendingOps={Object.entries(stagedEntries).map(([path, entry]) => ({ path: path.replace(/^(left|right):/, ""), side: entry.side, kind: entry.kind }))}
         onUnstageOne={(entryPath) => void unstage(entryPath)}
         searchOpen={searchOpen}
         drawerOpen={drawerOpen}
@@ -790,6 +818,8 @@ export function App() {
                 editValue={editBuffer}
                 onEditChange={(value) => setEditBuffer(value ?? "")}
                 onEditBlur={(content) => selected && void stageEdit(selected.path, content)}
+                fileMerge={isFileMerge}
+                onDiffEditEither={(side, content) => void stageFileSide(side, content)}
               />
             </div>
           </div>

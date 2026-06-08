@@ -23,6 +23,7 @@ function setup(overrides = {}) {
     onCopy: vi.fn(), onShowSource: vi.fn(), onShowBytecode: vi.fn(),
     onEditorMount: vi.fn(), onDiffMount: vi.fn(),
     editable: false, editValue: "", onEditChange: vi.fn(), onEditBlur: vi.fn(),
+    fileMerge: false, onDiffEditEither: vi.fn(), onTakeAll: vi.fn(), onMoveHunk: vi.fn(),
     ...overrides,
   };
   render(<TooltipProvider><DiffView {...props} /></TooltipProvider>);
