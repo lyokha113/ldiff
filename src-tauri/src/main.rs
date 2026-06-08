@@ -8,7 +8,7 @@ use std::{
 
 use jdiff_core::{
     Archive, ArchiveDiff, ArchiveEntry, ArchiveMetadata, CommitOptions, CommitResult,
-    DecompileEngine, EntryKind, MergePlan, compare, search_constant_pool,
+    DecompileEngine, EntryKind, MergePlan, NestedArchiveCache, compare, search_constant_pool,
     validate_path as validate_archive_path,
 };
 use serde::{Deserialize, Serialize};
@@ -40,6 +40,8 @@ impl Side {
 struct AppState {
     left: Option<Archive>,
     right: Option<Archive>,
+    left_nested: NestedArchiveCache,
+    right_nested: NestedArchiveCache,
     merge_plan: MergePlan,
     staged_target: Option<Side>,
     engine: DecompileEngine,
@@ -64,6 +66,8 @@ impl AppState {
         Self {
             left: None,
             right: None,
+            left_nested: NestedArchiveCache::new().expect("temp dir for nested cache"),
+            right_nested: NestedArchiveCache::new().expect("temp dir for nested cache"),
             merge_plan: MergePlan::new(),
             staged_target: None,
             engine: DecompileEngine::Cfr,
@@ -87,6 +91,10 @@ impl AppState {
         }
         let summary = summarize(&archive);
         *archive_mut(self, side) = Some(archive);
+        match side {
+            Side::Left => self.left_nested = NestedArchiveCache::new().map_err(|e| e.to_string())?,
+            Side::Right => self.right_nested = NestedArchiveCache::new().map_err(|e| e.to_string())?,
+        }
         Ok(summary)
     }
 
@@ -732,6 +740,27 @@ fn archive_mut(state: &mut AppState, side: Side) -> &mut Option<Archive> {
         Side::Left => &mut state.left,
         Side::Right => &mut state.right,
     }
+}
+
+fn nested_cache_mut(state: &mut AppState, side: Side) -> &mut NestedArchiveCache {
+    match side {
+        Side::Left => &mut state.left_nested,
+        Side::Right => &mut state.right_nested,
+    }
+}
+
+/// Resolve a (possibly nested) entry path for `side` to its innermost archive
+/// (a clone) plus the leaf entry path. Clones the root first so the cache
+/// borrow does not conflict with the archive borrow.
+fn resolve_side_entry(
+    state: &mut AppState,
+    side: Side,
+    entry_path: &str,
+) -> Result<(Archive, String), String> {
+    let root = archive(state, side).ok_or("archive is not loaded")?.clone();
+    nested_cache_mut(state, side)
+        .resolve(&root, entry_path)
+        .map_err(|error| error.to_string())
 }
 
 fn summarize(archive: &Archive) -> ArchiveSummary {
