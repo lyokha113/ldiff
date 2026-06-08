@@ -69,7 +69,7 @@ const MAX_DIFF_TABS = 10;
 const SIDE_PREFIX_RE = /^(left|right):/;
 const stripSidePrefix = (key: string) => key.replace(SIDE_PREFIX_RE, "");
 
-// Keep in sync with EDITABLE_EXTENSIONS in crates/jdiff-core/src/edit.rs (Rust list is the authority; this list only controls the editor read-only affordance in the UI).
+// Keep in sync with EDITABLE_EXTENSIONS in crates/ldiff-core/src/edit.rs (Rust list is the authority; this list only controls the editor read-only affordance in the UI).
 const EDIT_EXTENSIONS = ["xml", "json", "ini", "txt", "properties", "yaml", "yml", "md", "csv", "cfg", "conf"];
 
 function searchResultKey(result: SearchResult) {
@@ -599,20 +599,18 @@ export function App() {
 
   async function unstage(key: string) {
     // File-merge staging uses side-prefixed keys ("left:<path>"/"right:<path>");
-    // archive/folder staging uses bare path keys. The backend `unstage` takes a
-    // bare entryPath, so strip any prefix for the IPC call. A bare key has no
-    // prefix, so the replace is a no-op and the existing archive flow is
-    // unaffected. For local state removal we drop every stored entry whose bare
-    // form matches — callers may hand us either the prefixed key or the bare
-    // display path (MenuBar shows bare paths), so match on the bare form.
-    const bare = stripSidePrefix(key);
+    // archive/folder staging uses bare path keys (a bare key has no prefix, so
+    // stripSidePrefix is a no-op there). The backend `unstage` takes a bare
+    // entryPath plus an optional side, so resolve the side from the stored entry
+    // and remove exactly the one matching local key. This keeps two versions of
+    // the same basename (left:config.json / right:config.json) independent.
     try {
-      await invoke("unstage", { entryPath: bare });
+      const entry = stagedEntries[key];
+      const bare = stripSidePrefix(key);
+      await invoke("unstage", { entryPath: bare, side: entry?.side });
       setStagedEntries((current) => {
         const next = { ...current };
-        for (const k of Object.keys(next)) {
-          if (stripSidePrefix(k) === bare) delete next[k];
-        }
+        delete next[key];
         if (Object.keys(next).length === 0) setStagedTarget(undefined);
         return next;
       });
@@ -648,11 +646,15 @@ export function App() {
 
   async function stageFileSide(side: Side, content: string) {
     if (!selected) return;
+    const key = `${side}:${selected.path}`;
     const original = (side === "left" ? preview.left?.content : preview.right?.content) ?? "";
-    if (content === original) return;
+    if (content === original) {
+      if (stagedEntries[key]?.kind === "edit") await unstage(key);
+      return;
+    }
     try {
       await invoke("stage_write", { side, entryPath: selected.path, content });
-      setStagedEntries((current) => ({ ...current, [`${side}:${selected.path}`]: { side, kind: "edit" } }));
+      setStagedEntries((current) => ({ ...current, [key]: { side, kind: "edit" } }));
       setStagedTarget(side);
       setMessage(`Edited ${selected.path} on ${side} (unsaved)`);
     } catch (error) {
@@ -841,7 +843,7 @@ export function App() {
       <MenuBar
         mode={mode}
         stagedTarget={stagedTarget}
-        pendingOps={Object.entries(stagedEntries).map(([path, entry]) => ({ path: stripSidePrefix(path), side: entry.side, kind: entry.kind }))}
+        pendingOps={Object.entries(stagedEntries).map(([key, entry]) => ({ key, path: stripSidePrefix(key), side: entry.side, kind: entry.kind }))}
         onUnstageOne={(entryPath) => void unstage(entryPath)}
         searchOpen={searchOpen}
         drawerOpen={drawerOpen}

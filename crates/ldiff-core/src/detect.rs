@@ -21,9 +21,9 @@ pub fn detect_entry_kind(path: &str, is_dir: bool) -> EntryKind {
         Some("class") => EntryKind::Class,
         Some("jar" | "zip" | "war" | "ear") => EntryKind::Archive,
         Some(
-            "css" | "csv" | "graphql" | "htm" | "html" | "java" | "js" | "json" | "kt" | "md"
-            | "mf" | "properties" | "rs" | "sql" | "svg" | "toml" | "ts" | "tsx" | "txt" | "xml"
-            | "yaml" | "yml",
+            "cfg" | "conf" | "css" | "csv" | "graphql" | "htm" | "html" | "ini" | "java" | "js"
+            | "json" | "kt" | "md" | "mf" | "properties" | "rs" | "sql" | "svg" | "toml" | "ts"
+            | "tsx" | "txt" | "xml" | "yaml" | "yml",
         ) => EntryKind::Text,
         _ => EntryKind::Binary,
     }
@@ -44,5 +44,10 @@ mod tests {
         assert_eq!(detect_entry_kind("a.ear", false), EntryKind::Archive);
         assert_eq!(detect_entry_kind("a.bin", false), EntryKind::Binary);
         assert_eq!(detect_entry_kind("A.class", false), EntryKind::Class);
+    }
+
+    #[test]
+    fn classifies_ini_as_text() {
+        assert_eq!(detect_entry_kind("app.ini", false), EntryKind::Text);
     }
 }

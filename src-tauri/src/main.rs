@@ -223,10 +223,15 @@ impl AppState {
         self.plan_mut(Side::Right).clear();
     }
 
-    fn unstage(&mut self, entry_path: &str) -> Result<(), String> {
-        for side in [Side::Left, Side::Right] {
+    fn unstage(&mut self, entry_path: &str, side: Option<Side>) -> Result<(), String> {
+        let sides: &[Side] = match side {
+            Some(Side::Left) => &[Side::Left],
+            Some(Side::Right) => &[Side::Right],
+            None => &[Side::Left, Side::Right],
+        };
+        for &s in sides {
             if self
-                .plan_mut(side)
+                .plan_mut(s)
                 .unstage(entry_path)
                 .map_err(|error| error.to_string())?
             {
@@ -582,11 +587,15 @@ fn clear_staged(state: State<'_, SharedState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn unstage(entry_path: String, state: State<'_, SharedState>) -> Result<(), String> {
+fn unstage(
+    entry_path: String,
+    side: Option<Side>,
+    state: State<'_, SharedState>,
+) -> Result<(), String> {
     state
         .lock()
         .map_err(|_| "state lock is poisoned".to_owned())?
-        .unstage(&entry_path)
+        .unstage(&entry_path, side)
 }
 
 #[tauri::command]
@@ -1071,7 +1080,7 @@ mod tests {
             .unwrap();
         state.stage_copy(Side::Left, Side::Right, "a.txt").unwrap();
 
-        state.unstage("a.txt").unwrap();
+        state.unstage("a.txt", None).unwrap();
 
         assert!(!state.any_pending());
         state
@@ -1410,7 +1419,7 @@ mod tests {
         state.load_archive(left.to_str().unwrap(), Side::Left).unwrap();
         state.stage_write(Side::Left, "a.txt", "new").unwrap();
 
-        state.unstage("a.txt").unwrap();
+        state.unstage("a.txt", None).unwrap();
 
         assert!(!state.any_pending());
     }

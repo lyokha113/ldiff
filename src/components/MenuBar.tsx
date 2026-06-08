@@ -11,7 +11,7 @@ import type { Mode, Side } from "@/lib/types";
 interface MenuBarProps {
   mode: Mode;
   stagedTarget?: Side;
-  pendingOps: Array<{ path: string; side: Side; kind: "copy" | "edit" }>;
+  pendingOps: Array<{ key: string; path: string; side: Side; kind: "copy" | "edit" }>;
   searchOpen: boolean;
   drawerOpen: boolean;
   canRefresh: boolean;
@@ -75,11 +75,11 @@ export function MenuBar({
               <p className="pending-header">Pending changes → {stagedTarget ?? "—"}</p>
               <ul>
                 {pendingOps.map((op) => (
-                  <li key={op.path}>
+                  <li key={op.key}>
                     {op.kind === "edit" ? <Pencil size={14} /> : <ArrowRightLeft size={14} />}
                     <span className="pending-path">{op.path}</span>
                     <Button variant="ghost" size="icon" aria-label={`Unstage ${op.path}`}
-                      onClick={() => onUnstageOne(op.path)}><X size={14} /></Button>
+                      onClick={() => onUnstageOne(op.key)}><X size={14} /></Button>
                   </li>
                 ))}
               </ul>
