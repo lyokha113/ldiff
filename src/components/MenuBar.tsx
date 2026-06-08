@@ -1,4 +1,4 @@
-import { ArrowRightLeft, ChevronDown, Pencil, RefreshCw, Save, Search, Settings, Trash2 } from "lucide-react";
+import { ArrowRightLeft, ChevronDown, Pencil, RefreshCw, Save, Search, Settings, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -72,14 +72,14 @@ export function MenuBar({
               </Button>
             </PopoverTrigger>
             <PopoverContent className="pending-popover">
-              <p className="pending-header">Pending changes → {stagedTarget}</p>
+              <p className="pending-header">Pending changes → {stagedTarget ?? "—"}</p>
               <ul>
                 {pendingOps.map((op) => (
                   <li key={op.path}>
                     {op.kind === "edit" ? <Pencil size={14} /> : <ArrowRightLeft size={14} />}
                     <span className="pending-path">{op.path}</span>
                     <Button variant="ghost" size="icon" aria-label={`Unstage ${op.path}`}
-                      onClick={() => onUnstageOne(op.path)}>×</Button>
+                      onClick={() => onUnstageOne(op.path)}><X size={14} /></Button>
                   </li>
                 ))}
               </ul>

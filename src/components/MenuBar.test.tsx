@@ -48,4 +48,18 @@ describe("MenuBar", () => {
     setup({ canRefresh: false });
     expect(screen.getByLabelText("Refresh sources")).toBeDisabled();
   });
+  it("lists pending paths and unstages a row", async () => {
+    const props = setup({
+      stagedTarget: "right",
+      pendingOps: [
+        { path: "config.xml", side: "right", kind: "edit" },
+        { path: "Main.class", side: "right", kind: "copy" },
+      ],
+    });
+    await userEvent.click(screen.getByLabelText("Show pending changes"));
+    expect(await screen.findByText("config.xml")).toBeInTheDocument();
+    expect(screen.getByText("Main.class")).toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("Unstage config.xml"));
+    expect(props.onUnstageOne).toHaveBeenCalledWith("config.xml");
+  });
 });
