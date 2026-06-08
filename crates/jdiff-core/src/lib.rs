@@ -15,7 +15,7 @@ pub use detect::EntryKind;
 pub use diff::{ArchiveDiff, ComparePair, PairStatus, compare};
 pub use error::{Error, Result};
 pub use merge::{
-    CommitOptions, CommitResult, MergePlan, StagedCopy, read_zip_entry_from_bytes,
+    CommitOptions, CommitResult, MergePlan, StagedKind, StagedOp, read_zip_entry_from_bytes,
     rewrite_zip_bytes,
 };
 pub use nested::{ARCHIVE_SEPARATOR, NestedArchiveCache, is_nested};
