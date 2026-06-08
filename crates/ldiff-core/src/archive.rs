@@ -39,6 +39,7 @@ pub struct ArchiveMetadata {
 pub enum ArchiveSourceKind {
     Archive,
     Directory,
+    File,
 }
 
 #[derive(Clone, Debug)]
@@ -331,6 +332,17 @@ fn map_zip_entry_error(error: ZipError, entry: String) -> Error {
     match error {
         ZipError::UnsupportedArchive(ZipError::PASSWORD_REQUIRED) => Error::EncryptedEntry(entry),
         other => Error::Zip(other),
+    }
+}
+
+#[cfg(test)]
+mod source_kind_tests {
+    use super::*;
+
+    #[test]
+    fn file_source_kind_serializes_camel_case() {
+        let json = serde_json::to_string(&ArchiveSourceKind::File).unwrap();
+        assert_eq!(json, "\"file\"");
     }
 }
 
