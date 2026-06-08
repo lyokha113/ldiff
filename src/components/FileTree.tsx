@@ -6,12 +6,12 @@ import {
 } from "@/components/ui/context-menu";
 import { statusPresentation } from "@/lib/status";
 import { buildTree, isArchiveKind, pairPassesTreeFilter, type TreeNode } from "@/lib/tree";
-import type { ComparePair, Mode, Side, TreeFilter } from "@/lib/types";
+import type { ComparePair, Mode, Side, StagedEntry, TreeFilter } from "@/lib/types";
 
 interface FileTreeProps {
   visiblePairs: ComparePair[];
   selected?: ComparePair;
-  stagedEntries: Record<string, Side>;
+  stagedEntries: Record<string, StagedEntry>;
   mode: Mode;
   treeFilter: TreeFilter;
   nestedPairs: Record<string, ComparePair[]>;
@@ -124,7 +124,7 @@ function FileTreeNode({ node, depth, basePath, expanded, onToggle, ...props }: N
               {open ? <ChevronDown className="tree-chevron" /> : <ChevronRight className="tree-chevron" />}
               <FileArchive className="tree-icon" />
               <span className="tree-name">{node.name}</span>
-              {stagedEntries[fullPath] && <Badge variant="secondary">pending → {stagedEntries[fullPath]}</Badge>}
+              {stagedEntries[fullPath] && <Badge variant="secondary">pending → {stagedEntries[fullPath].side}</Badge>}
               {mode !== "single" && <span className="status-chip" title={pres.label} aria-label={pres.label}>{pres.glyph}</span>}
             </button>
           </ContextMenuTrigger>
@@ -169,7 +169,7 @@ function FileTreeNode({ node, depth, basePath, expanded, onToggle, ...props }: N
         >
           <File className="tree-icon" />
           <span className="tree-name">{node.name}</span>
-          {stagedEntries[fullPath] && <Badge variant="secondary">pending → {stagedEntries[fullPath]}</Badge>}
+          {stagedEntries[fullPath] && <Badge variant="secondary">pending → {stagedEntries[fullPath].side}</Badge>}
           {mode !== "single" && <span className="status-chip" title={pres.label} aria-label={pres.label}>{pres.glyph}</span>}
         </button>
       </ContextMenuTrigger>

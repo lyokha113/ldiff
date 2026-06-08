@@ -20,6 +20,7 @@ import type {
   SearchScope,
   SearchTier,
   Side,
+  StagedEntry,
   TreeFilter,
   ViewMode,
 } from "@/lib/types";
@@ -117,7 +118,8 @@ export function App() {
   const [ignoreTrimWhitespace, setIgnoreTrimWhitespace] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("source");
   const [stagedTarget, setStagedTarget] = useState<Side>();
-  const [stagedEntries, setStagedEntries] = useState<Record<string, Side>>({});
+  const [stagedEntries, setStagedEntries] = useState<Record<string, StagedEntry>>({});
+  const [editBuffer, setEditBuffer] = useState<string>("");
   const [searching, setSearching] = useState(false);
   const [dropHint, setDropHint] = useState("");
   const [signedSavePrompt, setSignedSavePrompt] = useState<Side>();
@@ -394,6 +396,7 @@ export function App() {
     }
     if (previewRequestId.current !== requestId) return;
     setPreview(next);
+    setEditBuffer(next.left?.content ?? "");
     focusCounter.current += 1;
     const stamp = focusCounter.current;
     setOpenTabs((prev) =>
@@ -508,7 +511,7 @@ export function App() {
     try {
       await invoke("stage_copy", { from, to, entryPath: pair.path });
       setStagedTarget(to);
-      setStagedEntries((current) => ({ ...current, [pair.path]: to }));
+      setStagedEntries((current) => ({ ...current, [pair.path]: { side: to, kind: "copy" } }));
       setMessage(`Staged ${pair.path}: ${from} -> ${to}`);
     } catch (error) {
       setMessage(String(error));
@@ -569,6 +572,28 @@ export function App() {
         return next;
       });
       setMessage(`Unstaged ${entryPath}.`);
+    } catch (error) {
+      setMessage(String(error));
+    }
+  }
+
+  async function stageEdit(entryPath: string, content: string) {
+    const original = preview.left?.content ?? "";
+    if (content === original) {
+      if (stagedEntries[entryPath]?.kind === "edit") {
+        await invoke("unstage", { entryPath });
+        setStagedEntries((current) => {
+          const next = { ...current };
+          delete next[entryPath];
+          return next;
+        });
+      }
+      return;
+    }
+    try {
+      await invoke("stage_write", { side: "left", entryPath, content });
+      setStagedEntries((current) => ({ ...current, [entryPath]: { side: "left", kind: "edit" } }));
+      setMessage(`Edited ${entryPath} (unsaved)`);
     } catch (error) {
       setMessage(String(error));
     }
@@ -670,6 +695,13 @@ export function App() {
     );
   }
 
+  const EDIT_EXTENSIONS = ["xml", "json", "ini", "txt", "properties", "yaml", "yml", "md", "csv", "cfg", "conf"];
+  const selectedExtension = (selected?.path ?? "").split(".").pop()?.toLowerCase() ?? "";
+  const isEditableEntry =
+    mode === "single" &&
+    !!preview.left &&
+    (preview.left.kind === "text" || EDIT_EXTENSIONS.includes(selectedExtension));
+
   return (
     <TooltipProvider>
     <main className="app-shell">
@@ -746,6 +778,10 @@ export function App() {
                 onShowBytecode={showBytecode}
                 onEditorMount={handleEditorMount}
                 onDiffMount={handleDiffMount}
+                editable={isEditableEntry}
+                editValue={editBuffer}
+                onEditChange={(value) => setEditBuffer(value ?? "")}
+                onEditBlur={() => selected && void stageEdit(selected.path, editBuffer)}
               />
             </div>
           </div>
