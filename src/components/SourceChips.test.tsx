@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { SourceChips } from "@/components/SourceChips";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import type { ArchiveSummary } from "@/lib/types";
 
 const leftArchive: ArchiveSummary = {
@@ -17,7 +18,11 @@ function setup(overrides = {}) {
     onBrowseFolder: vi.fn(), onSave: vi.fn(),
     ...overrides,
   };
-  render(<SourceChips {...props} />);
+  render(
+    <TooltipProvider>
+      <SourceChips {...props} />
+    </TooltipProvider>,
+  );
   return props;
 }
 

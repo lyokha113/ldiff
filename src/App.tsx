@@ -38,12 +38,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { FileDiff, ListTree } from "lucide-react";
 import { ConfigDrawer } from "@/components/ConfigDrawer";
 import { MenuBar } from "@/components/MenuBar";
 import { SourceChips } from "@/components/SourceChips";
@@ -63,6 +59,13 @@ function isTauriRuntime() {
 }
 
 const emptyPaths: Record<Side, string> = { left: "", right: "" };
+
+type WorkspaceTab = "tree" | "diff";
+
+function basename(path: string) {
+  const parts = path.split(/[\\/]/);
+  return parts[parts.length - 1] || path;
+}
 
 function searchResultKey(result: SearchResult) {
   return `${result.tier}:${result.side}:${result.path}:${result.matchKind}:${result.line ?? ""}`;
@@ -132,6 +135,7 @@ export function App() {
   const [signedWarningSuppressions, setSignedWarningSuppressions] = useState<Record<string, boolean>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("tree");
   const previewRequestId = useRef(0);
   const searchStreamId = useRef(0);
   const editorRef = useRef<CodeEditor | undefined>(undefined);
@@ -184,6 +188,7 @@ export function App() {
       setPathErrors((current) => ({ ...current, [side]: undefined }));
       setArchives((current) => ({ ...current, [side]: archive }));
       setSelected(undefined);
+      setActiveTab("tree");
       setPreview({});
       setSearchPaths(undefined);
       setSearchResults([]);
@@ -332,6 +337,7 @@ export function App() {
     const requestId = previewRequestId.current + 1;
     previewRequestId.current = requestId;
     setSelected(pair);
+    setActiveTab("diff");
     setViewMode("source");
     const next: Partial<Record<Side, EntryPreview>> = {};
     for (const side of ["left", "right"] as const) {
@@ -636,8 +642,30 @@ export function App() {
       {dropHint && <p className="platform-hint">{dropHint}</p>}
       <div className="work-area">
         <section className="workspace">
-          <ResizablePanelGroup orientation="vertical" className="workspace-panels">
-            <ResizablePanel defaultSize={44} minSize={25}>
+          <div className="workspace-tabs" role="tablist" aria-label="Workspace view">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "tree"}
+              className={`workspace-tab${activeTab === "tree" ? " active" : ""}`}
+              onClick={() => setActiveTab("tree")}
+            >
+              <ListTree /> Files
+              {visiblePairs.length > 0 && <span className="workspace-tab-count">{visiblePairs.length}</span>}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "diff"}
+              className={`workspace-tab${activeTab === "diff" ? " active" : ""}`}
+              disabled={!selected}
+              onClick={() => selected && setActiveTab("diff")}
+            >
+              <FileDiff /> {selected ? basename(selected.path) : "Diff"}
+            </button>
+          </div>
+          <div className="workspace-tabpanels">
+            <div className="workspace-tabpanel" role="tabpanel" hidden={activeTab !== "tree"}>
               <FileTree
                 visiblePairs={visiblePairs}
                 selected={selected}
@@ -648,9 +676,8 @@ export function App() {
                 onCopy={(from, to, pair) => void copy(from, to, pair)}
                 onUnstage={(entryPath) => void unstage(entryPath)}
               />
-            </ResizablePanel>
-            <ResizableHandle withHandle />
-            <ResizablePanel defaultSize={56} minSize={30}>
+            </div>
+            <div className="workspace-tabpanel" role="tabpanel" hidden={activeTab !== "diff"}>
               <DiffView
                 mode={mode}
                 selected={selected}
@@ -663,8 +690,8 @@ export function App() {
                 onEditorMount={handleEditorMount}
                 onDiffMount={handleDiffMount}
               />
-            </ResizablePanel>
-          </ResizablePanelGroup>
+            </div>
+          </div>
         </section>
         <ConfigDrawer
           open={drawerOpen}

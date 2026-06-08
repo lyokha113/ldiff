@@ -71,7 +71,6 @@ for (const marker of [
   'import { Checkbox } from "@/components/ui/checkbox";',
   'from "@/components/ui/context-menu";',
   'from "@/components/ui/dialog";',
-  'from "@/components/ui/resizable";',
   'from "@/components/ui/select";',
   'from "@/components/ui/tooltip";',
 ]) {
@@ -84,8 +83,9 @@ for (const marker of [
   "ContextMenuTrigger asChild",
   "ContextMenuContent",
   "ContextMenuItem",
-  "ResizablePanelGroup orientation=\"vertical\"",
-  "ResizableHandle withHandle",
+  'role="tablist"',
+  'role="tabpanel"',
+  'className="workspace-tab',
   "TooltipProvider",
   "TooltipTrigger asChild",
   "TooltipContent",
@@ -96,6 +96,19 @@ for (const marker of [
   if (!frontend.includes(marker)) {
     failures.push(`frontend: missing shadcn composition marker ${marker}`);
   }
+}
+
+if (
+  !app.includes('const [activeTab, setActiveTab] = useState<WorkspaceTab>("tree");') ||
+  !app.includes('type WorkspaceTab = "tree" | "diff";')
+) {
+  failures.push("src/App.tsx: tree and diff must live on separate workspace tabs via activeTab state");
+}
+if (!app.includes('setActiveTab("diff")')) {
+  failures.push("src/App.tsx: opening an entry must switch the workspace to the Diff tab");
+}
+if (!app.includes('setActiveTab("tree")')) {
+  failures.push("src/App.tsx: opening an archive must reset the workspace to the Files tab");
 }
 
 if (app.includes("interface ContextMenuState") || app.includes('className="context-menu"')) {
