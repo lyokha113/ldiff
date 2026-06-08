@@ -198,7 +198,7 @@ impl AppState {
             .unstage(entry_path)
             .map_err(|error| error.to_string())?
         {
-            return Err("staged copy is not found".to_owned());
+            return Err("staged entry is not found".to_owned());
         }
         if self.merge_plan.staged().is_empty() {
             self.staged_target = None;
@@ -1326,6 +1326,9 @@ mod tests {
         create_zip(&left, &[("config.xml", b"<old/>")]);
         let mut state = AppState::default();
         state.load_archive(left.to_str().unwrap(), Side::Left).unwrap();
+        let right = dir.path().join("right.jar");
+        create_zip(&right, &[("config.xml", b"<r/>")]);
+        state.load_archive(right.to_str().unwrap(), Side::Right).unwrap();
 
         state.stage_write(Side::Left, "config.xml", "<new/>").unwrap();
         assert_eq!(state.staged_target, Some(Side::Left));
@@ -1343,5 +1346,20 @@ mod tests {
         state.load_archive(left.to_str().unwrap(), Side::Left).unwrap();
         let err = state.stage_write(Side::Left, "blob.bin", "text").unwrap_err();
         assert!(err.contains("editable"));
+    }
+
+    #[test]
+    fn unstage_last_write_unlocks_archive_switch() {
+        let dir = tempdir().unwrap();
+        let left = dir.path().join("left.jar");
+        create_zip(&left, &[("a.txt", b"old")]);
+        let mut state = AppState::default();
+        state.load_archive(left.to_str().unwrap(), Side::Left).unwrap();
+        state.stage_write(Side::Left, "a.txt", "new").unwrap();
+
+        state.unstage("a.txt").unwrap();
+
+        assert!(state.merge_plan.staged().is_empty());
+        assert_eq!(state.staged_target, None);
     }
 }
