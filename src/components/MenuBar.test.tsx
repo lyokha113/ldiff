@@ -7,8 +7,8 @@ import { MenuBar } from "@/components/MenuBar";
 function setup(overrides = {}) {
   const props = {
     mode: "compare" as const, stagedTarget: undefined as "left" | "right" | undefined, stagedCount: 0,
-    searchOpen: true, drawerOpen: false,
-    onChangeMode: vi.fn(), onSave: vi.fn(), onClearStaged: vi.fn(),
+    searchOpen: true, drawerOpen: false, canRefresh: true,
+    onChangeMode: vi.fn(), onSave: vi.fn(), onRefresh: vi.fn(), onClearStaged: vi.fn(),
     onToggleSearch: vi.fn(), onToggleDrawer: vi.fn(),
     ...overrides,
   };
@@ -29,5 +29,14 @@ describe("MenuBar", () => {
     const props = setup();
     await userEvent.click(screen.getByLabelText("Settings"));
     expect(props.onToggleDrawer).toHaveBeenCalled();
+  });
+  it("refreshes sources", async () => {
+    const props = setup();
+    await userEvent.click(screen.getByLabelText("Refresh sources"));
+    expect(props.onRefresh).toHaveBeenCalled();
+  });
+  it("disables refresh when no source is loaded", () => {
+    setup({ canRefresh: false });
+    expect(screen.getByLabelText("Refresh sources")).toBeDisabled();
   });
 });

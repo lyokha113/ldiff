@@ -89,7 +89,7 @@ function FileTreeNode({ node, depth, basePath, expanded, onToggle, ...props }: N
           {open ? <ChevronDown className="tree-chevron" /> : <ChevronRight className="tree-chevron" />}
           {open ? <FolderOpen className="tree-icon" /> : <Folder className="tree-icon" />}
           <span className="tree-name">{node.name}</span>
-          {node.diffCount > 0 && <span className="folder-rollup">● {node.diffCount}</span>}
+          {props.mode !== "single" && node.diffCount > 0 && <span className="folder-rollup">● {node.diffCount}</span>}
         </button>
         {open && node.children.map((child) => (
           <FileTreeNode {...props} key={child.path} node={child} depth={depth + 1} basePath={basePath} expanded={expanded} onToggle={onToggle} />
@@ -125,7 +125,7 @@ function FileTreeNode({ node, depth, basePath, expanded, onToggle, ...props }: N
               <FileArchive className="tree-icon" />
               <span className="tree-name">{node.name}</span>
               {stagedEntries[fullPath] && <Badge variant="secondary">pending → {stagedEntries[fullPath]}</Badge>}
-              <span className="status-chip" title={pres.label} aria-label={pres.label}>{pres.glyph}</span>
+              {mode !== "single" && <span className="status-chip" title={pres.label} aria-label={pres.label}>{pres.glyph}</span>}
             </button>
           </ContextMenuTrigger>
           <ContextMenuContent>
@@ -170,7 +170,7 @@ function FileTreeNode({ node, depth, basePath, expanded, onToggle, ...props }: N
           <File className="tree-icon" />
           <span className="tree-name">{node.name}</span>
           {stagedEntries[fullPath] && <Badge variant="secondary">pending → {stagedEntries[fullPath]}</Badge>}
-          <span className="status-chip" title={pres.label} aria-label={pres.label}>{pres.glyph}</span>
+          {mode !== "single" && <span className="status-chip" title={pres.label} aria-label={pres.label}>{pres.glyph}</span>}
         </button>
       </ContextMenuTrigger>
       <ContextMenuContent>

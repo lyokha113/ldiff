@@ -47,7 +47,7 @@ import { DiffView, pairHasClass } from "@/components/DiffView";
 import { type DiffTab, evictLru, pickNeighbor, upsertTab } from "@/lib/tabs";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { FileTree } from "@/components/FileTree";
-import { pairPassesTreeFilter } from "@/lib/tree";
+import { isDirectoryPair, pairPassesTreeFilter } from "@/lib/tree";
 import { SplashScreen } from "@/components/SplashScreen";
 import {
   type HistoryEntry,
@@ -156,6 +156,7 @@ export function App() {
     () =>
       displayedPairs.filter(
         (pair) =>
+          !isDirectoryPair(pair) &&
           pairPassesTreeFilter(pair, treeFilter) &&
           (!searchPaths || searchPaths.has(pair.path)),
       ),
@@ -352,6 +353,14 @@ export function App() {
       directory: true,
     });
     if (path) await openPath(side, path);
+  }
+
+  function refreshSources() {
+    const sides: Side[] = mode === "compare" ? ["left", "right"] : ["left"];
+    for (const side of sides) {
+      const current = archives[side]?.path;
+      if (current) void openPath(side, current, true);
+    }
   }
 
   function focusTab(path: string) {
@@ -670,8 +679,10 @@ export function App() {
         stagedCount={Object.keys(stagedEntries).length}
         searchOpen={searchOpen}
         drawerOpen={drawerOpen}
+        canRefresh={Boolean(archives.left || archives.right)}
         onChangeMode={changeMode}
         onSave={(side) => void save(side)}
+        onRefresh={refreshSources}
         onClearStaged={clearStaged}
         onToggleSearch={() => setSearchOpen((o) => !o)}
         onToggleDrawer={() => setDrawerOpen((o) => !o)}
@@ -686,7 +697,6 @@ export function App() {
         onOpenPath={(side, path) => void openPath(side, path)}
         onBrowse={(side) => void browse(side)}
         onBrowseFolder={(side) => void browseFolder(side)}
-        onSave={(side) => void save(side)}
       />
 
       <SearchBar

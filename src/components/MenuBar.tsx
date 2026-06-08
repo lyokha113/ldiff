@@ -1,4 +1,4 @@
-import { Save, Search, Settings, Trash2 } from "lucide-react";
+import { RefreshCw, Save, Search, Settings, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,16 +13,18 @@ interface MenuBarProps {
   stagedCount: number;
   searchOpen: boolean;
   drawerOpen: boolean;
+  canRefresh: boolean;
   onChangeMode: (mode: Mode) => void;
   onSave: (side: Side) => void;
+  onRefresh: () => void;
   onClearStaged: () => void;
   onToggleSearch: () => void;
   onToggleDrawer: () => void;
 }
 
 export function MenuBar({
-  mode, stagedTarget, stagedCount, searchOpen, drawerOpen,
-  onChangeMode, onSave, onClearStaged, onToggleSearch, onToggleDrawer,
+  mode, stagedTarget, stagedCount, searchOpen, drawerOpen, canRefresh,
+  onChangeMode, onSave, onRefresh, onClearStaged, onToggleSearch, onToggleDrawer,
 }: MenuBarProps) {
   return (
     <header className="menu-bar">
@@ -34,10 +36,23 @@ export function MenuBar({
         <Select value={mode} onValueChange={(value) => onChangeMode(value as Mode)}>
           <SelectTrigger aria-label="Mode"><SelectValue /></SelectTrigger>
           <SelectContent><SelectGroup>
-            <SelectItem value="single">Single</SelectItem>
+            <SelectItem value="single">View</SelectItem>
             <SelectItem value="compare">Compare</SelectItem>
           </SelectGroup></SelectContent>
         </Select>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span>
+              <Button variant="outline" size="icon" aria-label="Refresh sources"
+                disabled={!canRefresh} onClick={onRefresh}>
+                <RefreshCw />
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{mode === "compare" ? "Reload both sources from disk" : "Reload the source from disk"}</p>
+          </TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <span>
