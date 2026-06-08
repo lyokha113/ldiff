@@ -164,10 +164,16 @@ ldiff/
 
 ## Prerequisites
 
+Current build targets are **Linux** (Ubuntu / Arch) and **macOS**.
+
 - **Rust** toolchain with the target you intend to build
-  (`aarch64-apple-darwin` is the primary local target).
+  (`aarch64-apple-darwin` is the primary macOS target).
 - **Node.js / npm** for the frontend and verifier scripts.
 - **Java 17 JDK** with `jlink` for the decompiler sidecar and bundled runtime.
+- **Maven** to build the sidecar jar.
+- **Linux:** GTK 3 + WebKit2GTK 4.1 system libraries. `scripts/build-linux.sh`
+  installs them for you (apt or pacman) — see
+  [Building and Packaging (Linux)](#building-and-packaging-linux).
 - **macOS only:** Xcode Command Line Tools (`codesign`, `hdiutil`, `xcrun`,
   `ditto`) for signing, packaging, and verification.
 
@@ -213,6 +219,34 @@ LDIFF_JLINK="$(mise where java@temurin-17.0.18+8)/bin/jlink" \
 scripts/test-sidecar-smoke.sh
 ```
 
+## Building and Packaging (Linux)
+
+Build on the target Linux machine — Linux bundles cannot be cross-built from
+macOS. One script installs the GTK/WebKit deps, assembles the sidecar, and
+builds the bundles on both Ubuntu and Arch:
+
+```bash
+scripts/build-linux.sh                 # apt or pacman deps, then AppImage + deb
+scripts/build-linux.sh --no-deps       # skip dep install if already present
+scripts/build-linux.sh --bundles appimage
+```
+
+System dependencies it installs:
+
+- **Ubuntu/Debian (apt):** `build-essential curl wget file libwebkit2gtk-4.1-dev
+  libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev
+  patchelf`.
+- **Arch (pacman):** `base-devel curl wget file webkit2gtk-4.1 gtk3
+  libappindicator-gtk3 librsvg xdotool openssl patchelf`.
+
+Bundles land under `target/release/bundle/` (`appimage/*.AppImage`, `deb/*.deb`).
+The **AppImage** is the portable artifact for both distros; the `.deb` targets
+Debian/Ubuntu. On Wayland, prefer Browse and path input to open files; if
+drag-and-drop misbehaves, relaunch under XWayland with
+`LDIFF_FORCE_XWAYLAND=1 scripts/launch-linux-xwayland.sh /path/to/LDiff`.
+
+Linux builds are unsigned; there is no Linux code-signing step.
+
 ## Building and Packaging (macOS)
 
 The primary local target is `aarch64-apple-darwin`. Build a debug app bundle:
@@ -249,53 +283,31 @@ Developer ID notarization requires Apple certificate and notary credentials;
 without them, local validation uses ad-hoc signing and records notarization as
 skipped. The full macOS operator runbook is `docs/OPERATIONS_MACOS.md`.
 
-## Platform Validation
+## Platform Validation (optional)
 
-Each platform has an external validation runner that writes evidence under
-`platform-validation/`. The latest local arm64 distribution report is
+Validation is **not required** for the current Linux + macOS build focus —
+`npm run verify:all` plus the build commands above are enough. The optional
+distribution runner writes evidence reports under `platform-validation/`; the
+latest local arm64 report is
 `platform-validation/macos-distribution-aarch64-apple-darwin-20260606T051217Z.md`.
-
-**macOS distribution:**
 
 ```bash
 scripts/verify-macos-distribution.sh --skip-install
 ```
 
-**Windows platform:**
-
-```powershell
-scripts\verify-windows-platform.ps1
-scripts\verify-windows-platform.ps1 -SkipInstall -SignIfSecretsPresent
-```
-
-**Linux display matrix** (the Wayland file-drop fallback forces
-`GDK_BACKEND=x11` only when a Wayland session is detected; Browse and path input
-remain the primary reliable open paths):
-
-```bash
-LDIFF_FORCE_XWAYLAND=1 \
-  scripts/launch-linux-xwayland.sh /path/to/LDiff
-scripts/verify-linux-display-matrix.sh --app /path/to/LDiff --sample /path/to/sample.jar
-```
+The Windows and Linux display-matrix gates are documented in
+`docs/PLATFORM_VALIDATION.md` for when those targets come back into scope.
 
 ## Release Signing Secrets
 
-These are optional and only needed for signed release builds.
-
-**macOS:**
+Optional, only for signed/notarized **macOS** release builds (Linux bundles are
+unsigned):
 
 - `MACOS_CERTIFICATE_BASE64` — base64-encoded Developer ID Application `.p12`.
 - `MACOS_CERTIFICATE_PASSWORD` — password for that `.p12`.
 - `MACOS_KEYCHAIN_PASSWORD` — temporary CI keychain password.
 - `MACOS_SIGN_IDENTITY` — Developer ID Application identity name.
 - `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD` — `notarytool` credentials.
-
-**Windows:**
-
-- `WINDOWS_CERTIFICATE_BASE64` — base64-encoded Authenticode `.pfx`.
-- `WINDOWS_CERTIFICATE_PASSWORD` — password for that `.pfx`.
-- `WINDOWS_TIMESTAMP_URL` — timestamp server URL; defaults to DigiCert when
-  omitted.
 
 ## Documentation Map
 
@@ -314,5 +326,6 @@ Product and build references:
 2. Run the full developer checks above, including `npm run verify:all`.
 3. Keep `docs/LDIFF_COMPLETION_AUDIT.md` in sync with new behavior;
    `npm run verify:docs` enforces documentation invariants.
-4. For platform-affecting changes, attach a `platform-validation/` evidence
-   report from the relevant runner.
+4. For Linux/macOS builds, confirm the bundle builds via `scripts/build-linux.sh`
+   or `npm run tauri -- build`. A `platform-validation/` evidence report is
+   optional and only expected when a platform gate is back in scope.

@@ -53,11 +53,11 @@ if (!readme.includes("docs/OPERATIONS_MACOS.md")) {
 if (!readme.includes("JAR/ZIP archives and folders")) {
   failures.push("README.md: missing folder input support summary");
 }
-if (!readme.includes("scripts\\verify-windows-platform.ps1")) {
-  failures.push("README.md: missing Windows platform validation runner command");
-}
-if (!readme.includes("scripts/verify-linux-display-matrix.sh")) {
-  failures.push("README.md: missing Linux display validation runner command");
+// Current build focus is Linux + macOS. The Windows / Linux display-matrix
+// validation runners stay documented in docs/PLATFORM_VALIDATION.md (still
+// enforced below) but are no longer required inline in the README.
+if (!readme.includes("scripts/build-linux.sh")) {
+  failures.push("README.md: missing Linux build script command");
 }
 
 const audit = readFileSync("docs/LDIFF_COMPLETION_AUDIT.md", "utf8");
