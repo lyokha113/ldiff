@@ -108,22 +108,44 @@ function FileTreeNode({ node, depth, basePath, expanded, onToggle, ...props }: N
     const children = nestedPairs[fullPath];
     return (
       <>
-        <button
-          type="button"
-          style={indent}
-          className={`tree-row tree-folder ${pair.status}`}
-          aria-expanded={open}
-          onClick={() => {
-            if (!open && children === undefined) onExpandArchive(fullPath);
-            onToggle(fullPath);
-          }}
-        >
-          {open ? <ChevronDown className="tree-chevron" /> : <ChevronRight className="tree-chevron" />}
-          <FileArchive className="tree-icon" />
-          <span className="tree-name">{node.name}</span>
-          {stagedEntries[fullPath] && <Badge variant="secondary">pending → {stagedEntries[fullPath]}</Badge>}
-          <span className="status-chip" title={pres.label} aria-label={pres.label}>{pres.glyph}</span>
-        </button>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <button
+              type="button"
+              style={indent}
+              className={`tree-row tree-folder ${pair.status}`}
+              aria-expanded={open}
+              onClick={() => {
+                if (!open && children === undefined) onExpandArchive(fullPath);
+                onToggle(fullPath);
+              }}
+            >
+              {open ? <ChevronDown className="tree-chevron" /> : <ChevronRight className="tree-chevron" />}
+              <FileArchive className="tree-icon" />
+              <span className="tree-name">{node.name}</span>
+              {stagedEntries[fullPath] && <Badge variant="secondary">pending → {stagedEntries[fullPath]}</Badge>}
+              <span className="status-chip" title={pres.label} aria-label={pres.label}>{pres.glyph}</span>
+            </button>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem
+              disabled={mode === "single" || !pair.right}
+              onSelect={() => onCopy("right", "left", fullPair)}
+            >
+              Copy to left
+            </ContextMenuItem>
+            <ContextMenuItem
+              disabled={mode === "single" || !pair.left}
+              onSelect={() => onCopy("left", "right", fullPair)}
+            >
+              Copy to right
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem disabled={!stagedEntries[fullPath]} onSelect={() => onUnstage(fullPath)}>
+              Unstage
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
         {open && children === undefined && (
           <div className="tree-row" style={{ paddingLeft: `${(depth + 1) * 14 + 8}px` }}>Loading…</div>
         )}
