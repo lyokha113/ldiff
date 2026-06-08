@@ -148,6 +148,16 @@ impl AppState {
             Archive::open(result.rewritten_path.to_string_lossy())
                 .map_err(|error| error.to_string())?,
         );
+        // The target (and any nested archives inside it) changed on disk; drop
+        // the stale extractions so a re-expand reflects the committed contents.
+        match target_side {
+            Side::Left => {
+                self.left_nested = NestedArchiveCache::new().map_err(|e| e.to_string())?
+            }
+            Side::Right => {
+                self.right_nested = NestedArchiveCache::new().map_err(|e| e.to_string())?
+            }
+        }
         Ok(result)
     }
 
