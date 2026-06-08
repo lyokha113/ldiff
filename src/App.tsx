@@ -121,6 +121,7 @@ export function App() {
   const [searching, setSearching] = useState(false);
   const [dropHint, setDropHint] = useState("");
   const [signedSavePrompt, setSignedSavePrompt] = useState<Side>();
+  const [pendingOpen, setPendingOpen] = useState<{ side: Side; path: string }>();
   const [suppressSignedWarningForFile, setSuppressSignedWarningForFile] = useState(false);
   const [signedWarningSuppressions, setSignedWarningSuppressions] = useState<Record<string, boolean>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -128,6 +129,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<"files" | string>("files");
   const [openTabs, setOpenTabs] = useState<DiffTab[]>([]);
   const focusCounter = useRef(0);
+  const openTabsCountRef = useRef(0);
   const previewRequestId = useRef(0);
   const searchStreamId = useRef(0);
   const editorRef = useRef<CodeEditor | undefined>(undefined);
@@ -180,8 +182,12 @@ export function App() {
     }
   }, []);
 
-  const openPath = useCallback(async (side: Side, path: string) => {
+  const openPath = useCallback(async (side: Side, path: string, confirmed = false) => {
     try {
+      if (!confirmed && openTabsCountRef.current > 0) {
+        setPendingOpen({ side, path });
+        return undefined;
+      }
       const validatedPath = await invoke<string>("validate_path", { raw: path });
       const archive = await invoke<ArchiveSummary>("open_archive", { path: validatedPath, side });
       previewRequestId.current += 1;
@@ -207,6 +213,10 @@ export function App() {
       return message;
     }
   }, [refreshDiff]);
+
+  useEffect(() => {
+    openTabsCountRef.current = openTabs.length;
+  }, [openTabs]);
 
   useEffect(() => {
     if (view !== "workspace") return;
@@ -459,10 +469,10 @@ export function App() {
     setMode(entry.mode);
     setView("workspace");
     if (entry.mode === "single") {
-      void openPath("left", entry.paths[0]);
+      void openPath("left", entry.paths[0], true);
     } else {
-      void openPath("left", entry.paths[0]).then(() =>
-        openPath("right", entry.paths[1]),
+      void openPath("left", entry.paths[0], true).then(() =>
+        openPath("right", entry.paths[1], true),
       );
     }
   }
@@ -515,7 +525,7 @@ export function App() {
       const saveMessage =
         `Saved ${result.copiedEntries} entries to ${result.rewrittenPath}` +
         (result.signatureInvalidated ? " (signed archive is now invalid)" : "");
-      const reloadError = await openPath(targetSide, result.rewrittenPath);
+      const reloadError = await openPath(targetSide, result.rewrittenPath, true);
       setMessage(reloadError ? `${saveMessage}; reload failed: ${reloadError}` : saveMessage);
     } catch (error) {
       setMessage(String(error));
@@ -762,6 +772,28 @@ export function App() {
           ))}
         </section>
       )}
+      <Dialog open={pendingOpen !== undefined} onOpenChange={(open) => !open && setPendingOpen(undefined)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Close open diffs?</DialogTitle>
+            <DialogDescription>
+              Opening a new archive will close your {openTabs.length} open diff{openTabs.length === 1 ? "" : "s"} and reset the comparison.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingOpen(undefined)}>Cancel</Button>
+            <Button
+              onClick={() => {
+                const target = pendingOpen;
+                setPendingOpen(undefined);
+                if (target) void openPath(target.side, target.path, true);
+              }}
+            >
+              Open anyway
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog open={signedSavePrompt !== undefined} onOpenChange={(open) => !open && setSignedSavePrompt(undefined)}>
         <DialogContent>
           <DialogHeader>
