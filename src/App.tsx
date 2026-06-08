@@ -46,6 +46,7 @@ import { SourceChips } from "@/components/SourceChips";
 import { SearchBar } from "@/components/SearchBar";
 import { DiffView, pairHasClass } from "@/components/DiffView";
 import { type DiffTab, evictLru, pickNeighbor, upsertTab } from "@/lib/tabs";
+import { moveHunk, type Hunk } from "@/lib/textMerge";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { FileTree } from "@/components/FileTree";
 import { isDirectoryPair, pairPassesTreeFilter } from "@/lib/tree";
@@ -628,6 +629,65 @@ export function App() {
     }
   }
 
+  function currentHunkAtCursor(): Hunk | undefined {
+    const ed = diffEditorRef.current;
+    if (!ed) return undefined;
+    const changes = ed.getLineChanges() ?? [];
+    const line = ed.getModifiedEditor().getPosition()?.lineNumber ?? 1;
+    const c =
+      changes.find(
+        (ch) =>
+          line >= ch.modifiedStartLineNumber &&
+          line <= Math.max(ch.modifiedEndLineNumber, ch.modifiedStartLineNumber),
+      ) ?? changes[0];
+    if (!c) return undefined;
+    // Monaco: *EndLineNumber === 0 means "no lines on that side" (insertion point).
+    return {
+      targetStart: c.modifiedStartLineNumber,
+      targetEnd: c.modifiedEndLineNumber === 0 ? c.modifiedStartLineNumber - 1 : c.modifiedEndLineNumber,
+      sourceStart: c.originalStartLineNumber,
+      sourceEnd: c.originalEndLineNumber === 0 ? c.originalStartLineNumber - 1 : c.originalEndLineNumber,
+    };
+  }
+
+  async function takeAllTo(target: Side) {
+    if (!isFileMerge || !selected) return;
+    const source: Side = target === "left" ? "right" : "left";
+    const content = (source === "left" ? preview.left?.content : preview.right?.content) ?? "";
+    await stageFileSide(target, content);
+    const ed = diffEditorRef.current;
+    if (ed) (target === "left" ? ed.getOriginalEditor() : ed.getModifiedEditor()).setValue(content);
+  }
+
+  async function moveHunkTo(target: Side) {
+    if (!isFileMerge) return;
+    const ed = diffEditorRef.current;
+    const hunk = currentHunkAtCursor();
+    if (!ed || !hunk) return;
+    const orig = ed.getOriginalEditor().getValue();
+    const mod = ed.getModifiedEditor().getValue();
+    if (target === "left") {
+      // source = right (modified). Roles: left=original=target, right=modified=source.
+      const swapped: Hunk = {
+        targetStart: hunk.sourceStart,
+        targetEnd: hunk.sourceEnd,
+        sourceStart: hunk.targetStart,
+        sourceEnd: hunk.targetEnd,
+      };
+      const res = moveHunk(orig, mod, swapped);
+      ed.getOriginalEditor().setValue(res.target);
+      ed.getModifiedEditor().setValue(res.source);
+      await stageFileSide("left", res.target);
+      await stageFileSide("right", res.source);
+    } else {
+      const res = moveHunk(mod, orig, hunk);
+      ed.getModifiedEditor().setValue(res.target);
+      ed.getOriginalEditor().setValue(res.source);
+      await stageFileSide("right", res.target);
+      await stageFileSide("left", res.source);
+    }
+  }
+
   async function runSearch() {
     const searchId = searchStreamId.current + 1;
     searchStreamId.current = searchId;
@@ -820,6 +880,8 @@ export function App() {
                 onEditBlur={(content) => selected && void stageEdit(selected.path, content)}
                 fileMerge={isFileMerge}
                 onDiffEditEither={(side, content) => void stageFileSide(side, content)}
+                onTakeAll={(t) => void takeAllTo(t)}
+                onMoveHunk={(t) => void moveHunkTo(t)}
               />
             </div>
           </div>

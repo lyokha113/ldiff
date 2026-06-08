@@ -25,13 +25,15 @@ interface DiffViewProps {
   onEditBlur: (content: string) => void;
   fileMerge: boolean;
   onDiffEditEither: (side: Side, content: string) => void;
+  onTakeAll: (target: Side) => void;
+  onMoveHunk: (target: Side) => void;
 }
 
 export function DiffView({
   mode, selected, preview, viewMode, ignoreTrimWhitespace,
   onCopy, onShowSource, onShowBytecode, onEditorMount, onDiffMount,
   editable, editValue, onEditChange, onEditBlur,
-  fileMerge, onDiffEditEither,
+  fileMerge, onDiffEditEither, onTakeAll, onMoveHunk,
 }: DiffViewProps) {
   return (
     <div className="editor-panel">
@@ -62,6 +64,14 @@ export function DiffView({
             <TooltipContent><p>Copy left entry to right</p></TooltipContent>
           </Tooltip>
         </div>
+        {fileMerge && (
+          <div className="copy-cluster">
+            <Button variant="outline" size="sm" onClick={() => onTakeAll("left")}>Take all → left</Button>
+            <Button variant="outline" size="sm" onClick={() => onTakeAll("right")}>Take all → right</Button>
+            <Button variant="outline" size="sm" onClick={() => onMoveHunk("left")}>Move hunk → left</Button>
+            <Button variant="outline" size="sm" onClick={() => onMoveHunk("right")}>Move hunk → right</Button>
+          </div>
+        )}
         <div className="view-toggle" role="group" aria-label="Diff view mode">
           <Button variant={viewMode === "source" ? "secondary" : "ghost"} size="sm"
             aria-label="Show source" aria-pressed={viewMode === "source"}
