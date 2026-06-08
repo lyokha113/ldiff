@@ -99,15 +99,15 @@ for (const marker of [
 }
 
 if (
-  !app.includes('const [activeTab, setActiveTab] = useState<WorkspaceTab>("tree");') ||
-  !app.includes('type WorkspaceTab = "tree" | "diff";')
+  !app.includes('const [activeTab, setActiveTab] = useState<"files" | string>("files");') ||
+  !frontend.includes("<WorkspaceTabs")
 ) {
-  failures.push("src/App.tsx: tree and diff must live on separate workspace tabs via activeTab state");
+  failures.push("src/App.tsx: Files tab and per-entry diff tabs must live in activeTab state rendered via WorkspaceTabs");
 }
-if (!app.includes('setActiveTab("diff")')) {
-  failures.push("src/App.tsx: opening an entry must switch the workspace to the Diff tab");
+if (!app.includes("setActiveTab(pair.path);")) {
+  failures.push("src/App.tsx: opening an entry must switch the workspace to its diff tab");
 }
-if (!app.includes('setActiveTab("tree")')) {
+if (!app.includes('setActiveTab("files");')) {
   failures.push("src/App.tsx: opening an archive must reset the workspace to the Files tab");
 }
 
@@ -173,7 +173,7 @@ if (!closeEffectBody.includes("getCurrentWindow()") || !closeEffectBody.includes
   failures.push("src/App.tsx: close-request effect must be guarded for non-Tauri browser preview");
 }
 
-const openPathBody = app.match(/const openPath = useCallback\(async \(side: Side, path: string\) => {([\s\S]*?)\n  }, \[refreshDiff\]\);/)?.[1] ?? "";
+const openPathBody = app.match(/const openPath = useCallback\(async \(side: Side, path: string, confirmed = false\) => {([\s\S]*?)\n  }, \[refreshDiff\]\);/)?.[1] ?? "";
 if (!openPathBody.includes("previewRequestId.current += 1;")) {
   failures.push("src/App.tsx: archive open must invalidate pending preview requests");
 }
@@ -194,7 +194,7 @@ for (const marker of [
   }
 }
 
-const inspectBody = app.match(/async function inspect\(pair: ComparePair\) {([\s\S]*?)\n  async function showBytecode/)?.[1] ?? "";
+const inspectBody = app.match(/async function inspect\(pair: ComparePair, force = false\) {([\s\S]*?)\n  function closeTab/)?.[1] ?? "";
 if (
   !inspectBody.includes("const requestId = previewRequestId.current + 1;") ||
   !inspectBody.includes("previewRequestId.current = requestId;") ||
@@ -266,8 +266,12 @@ if (
   failures.push("src/App.tsx: clear search must invalidate events and clear busy state");
 }
 
-if (!app.includes("function pairPassesTreeFilter(pair: ComparePair, filter: TreeFilter)")) {
-  failures.push("src/App.tsx: tree filter logic must be shared with search-result navigation");
+const sharesTreeFilter =
+  app.includes('pairPassesTreeFilter } from "@/lib/tree"') &&
+  app.includes("pairPassesTreeFilter(pair, treeFilter)");
+const inspectSearchBody = app.match(/function inspectSearchResult\(result: SearchResult\) {([\s\S]*?)\n  }/)?.[1] ?? "";
+if (!sharesTreeFilter || !inspectSearchBody.includes("pairPassesTreeFilter(pair, treeFilter)")) {
+  failures.push("src/App.tsx: tree filter logic must be shared (lib/tree) with search-result navigation");
 }
 
 const visiblePairsBody = app.match(/const visiblePairs = useMemo\(([\s\S]*?)\n  \);/)?.[1] ?? "";
