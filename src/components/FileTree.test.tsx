@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { FileTree } from "@/components/FileTree";
@@ -12,6 +12,7 @@ const pairs: ComparePair[] = [
 function setup(overrides = {}) {
   const props = {
     visiblePairs: pairs, selected: undefined, stagedEntries: {}, mode: "compare" as const,
+    nestedPairs: {}, onExpandArchive: vi.fn(),
     onInspect: vi.fn(), onSelect: vi.fn(), onCopy: vi.fn(), onUnstage: vi.fn(),
     ...overrides,
   };
@@ -40,5 +41,27 @@ describe("FileTree", () => {
     setup();
     expect(screen.getByLabelText("left only")).toBeInTheDocument();
     expect(screen.getByLabelText("modified")).toBeInTheDocument();
+  });
+  it("renders a nested archive entry as an expandable row that fetches on click", () => {
+    const pairs: ComparePair[] = [
+      { path: "lib/inner.jar", status: "different", left: { path: "lib/inner.jar", kind: "archive" }, right: { path: "lib/inner.jar", kind: "archive" } },
+    ];
+    const onExpandArchive = vi.fn();
+    render(
+      <FileTree
+        visiblePairs={pairs}
+        stagedEntries={{}}
+        mode="compare"
+        nestedPairs={{}}
+        onInspect={() => {}}
+        onSelect={() => {}}
+        onCopy={() => {}}
+        onUnstage={() => {}}
+        onExpandArchive={onExpandArchive}
+      />,
+    );
+    const row = screen.getByText("inner.jar").closest("button")!;
+    fireEvent.click(row);
+    expect(onExpandArchive).toHaveBeenCalledWith("lib/inner.jar");
   });
 });
