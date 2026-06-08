@@ -21,7 +21,7 @@ export type ViewMode = "source" | "bytecode";
 
 export interface ArchiveSummary {
   path: string;
-  metadata: { sourceKind: "archive" | "directory"; signed: boolean; multiRelease: boolean; zip64: boolean };
+  metadata: { sourceKind: "archive" | "directory" | "file"; signed: boolean; multiRelease: boolean; zip64: boolean };
   entries: Array<{ path: string; kind: EntryKind; uncompressedSize: number }>;
 }
 
