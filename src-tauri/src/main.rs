@@ -1400,6 +1400,79 @@ mod tests {
     }
 
     #[test]
+    fn file_merge_commits_both_sides_and_persists() {
+        let dir = tempfile::tempdir().unwrap();
+        let left = dir.path().join("config.json"); // same basename on purpose
+        let right = dir.path().join("other").join("config.json");
+        std::fs::create_dir_all(dir.path().join("other")).unwrap();
+        std::fs::write(&left, b"{\"v\":1}\n").unwrap();
+        std::fs::write(&right, b"{\"v\":2}\n").unwrap();
+
+        let mut state = AppState::default();
+        state
+            .install_archive(Archive::open(left.to_string_lossy()).unwrap(), Side::Left)
+            .unwrap();
+        state
+            .install_archive(Archive::open(right.to_string_lossy()).unwrap(), Side::Right)
+            .unwrap();
+
+        // Edit both sides (mirrors stageFileSide on each pane). A File source
+        // indexes its single entry by basename, so both sides use "config.json".
+        state.stage_write(Side::Left, "config.json", "{\"v\":9}\n").unwrap();
+        state.stage_write(Side::Right, "config.json", "{\"v\":9}\n").unwrap();
+
+        // Save commits every dirty side (order: left then right) — must NOT error.
+        state.commit_merge(Side::Left, true, false).unwrap();
+        state.commit_merge(Side::Right, true, false).unwrap();
+
+        assert_eq!(std::fs::read(&left).unwrap(), b"{\"v\":9}\n");
+        assert_eq!(std::fs::read(&right).unwrap(), b"{\"v\":9}\n");
+        // Commit clears each plan, so nothing remains to unstage on either side.
+        assert!(state.plan(Side::Left).is_empty());
+        assert!(state.plan(Side::Right).is_empty());
+        assert!(state.unstage("config.json", None).is_err());
+    }
+
+    #[test]
+    fn side_aware_unstage_removes_only_that_side() {
+        let dir = tempfile::tempdir().unwrap();
+        let left = dir.path().join("config.json"); // same basename on purpose
+        let right = dir.path().join("other").join("config.json");
+        std::fs::create_dir_all(dir.path().join("other")).unwrap();
+        std::fs::write(&left, b"{\"v\":1}\n").unwrap();
+        std::fs::write(&right, b"{\"v\":2}\n").unwrap();
+
+        let mut state = AppState::default();
+        state
+            .install_archive(Archive::open(left.to_string_lossy()).unwrap(), Side::Left)
+            .unwrap();
+        state
+            .install_archive(Archive::open(right.to_string_lossy()).unwrap(), Side::Right)
+            .unwrap();
+
+        // Both sides stage the same basename.
+        state.stage_write(Side::Left, "config.json", "{\"v\":9}\n").unwrap();
+        state.stage_write(Side::Right, "config.json", "{\"v\":9}\n").unwrap();
+        assert!(!state.plan(Side::Left).is_empty());
+        assert!(!state.plan(Side::Right).is_empty());
+
+        // Side-aware unstage targets ONLY the named side.
+        state.unstage("config.json", Some(Side::Left)).unwrap();
+
+        // Left plan is now empty; right still carries its op.
+        assert!(state.plan(Side::Left).is_empty());
+        assert!(!state.plan(Side::Right).is_empty());
+
+        // Right still commits; left has nothing to commit (EmptyMergePlan).
+        state.commit_merge(Side::Right, false, false).unwrap();
+        let left_err = state.commit_merge(Side::Left, false, false).unwrap_err();
+        assert!(
+            left_err.to_lowercase().contains("empty"),
+            "expected empty-plan error, got: {left_err}"
+        );
+    }
+
+    #[test]
     fn stage_write_rejects_binary_entry() {
         let dir = tempdir().unwrap();
         let left = dir.path().join("b.jar");
