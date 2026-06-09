@@ -413,7 +413,7 @@ Keep the existing `stage_write_locks_target_and_rejects_other_side` test unchang
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cargo test -p ldiff-app file_sources_allow_staging_both_sides` (use the actual `src-tauri` package name — check `name =` in `src-tauri/Cargo.toml`; substitute below wherever `ldiff-app` appears).
+Run: `cargo test -p ldiff-desktop file_sources_allow_staging_both_sides` (use the actual `src-tauri` package name — check `name =` in `src-tauri/Cargo.toml`; substitute below wherever `ldiff-desktop` appears).
 Expected: FAIL — second `stage_write` returns the cross-side lock error.
 
 - [ ] **Step 3: Refactor `AppState` to per-side plans**
@@ -605,12 +605,12 @@ Fix `install_archive` if it referenced `staged_target` / `merge_plan` (`rg -n "s
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `cargo test -p ldiff-app file_sources_allow_staging_both_sides stage_write_locks_target_and_rejects_other_side`
+Run: `cargo test -p ldiff-desktop file_sources_allow_staging_both_sides stage_write_locks_target_and_rejects_other_side`
 Expected: both PASS — File↔File stages both; archive still rejects the second side.
 
 - [ ] **Step 6: Run full Tauri suite**
 
-Run: `cargo test -p ldiff-app`
+Run: `cargo test -p ldiff-desktop`
 Expected: PASS. Resolve any remaining `staged_target` references the compiler flags.
 
 - [ ] **Step 7: Commit**
@@ -633,7 +633,7 @@ Expected: all five commands still present with the same signatures.
 
 - [ ] **Step 2: Build check**
 
-Run: `cargo build -p ldiff-app`
+Run: `cargo build -p ldiff-desktop`
 Expected: clean build.
 
 - [ ] **Step 3: Commit (if any fixups were needed)**
@@ -1047,4 +1047,4 @@ Then use superpowers:finishing-a-development-branch to decide merge/PR.
 - **High-risk write path:** "move" deletes lines from the source file. Atomic temp→rename + `.bak` bound the blast radius; `changed_on_disk` guards stale overwrites. Manual smoke step 4–6 is the data-integrity gate.
 - **Monaco original→modified copy:** native revert arrow (`renderMarginRevertIcon`) copies modified→original. The explicit toolbar buttons cover both directions and whole-file, so the feature does not depend on Monaco's built-in arrow direction.
 - **`stagedEntries` keying:** file-merge uses `side:path` keys so both sides coexist; strip the prefix before any `unstage` IPC call. Verify the MenuBar pending popover tolerates the prefixed key (display the bare path).
-- **Package names:** substitute the real `src-tauri` crate name for `ldiff-app` (check `src-tauri/Cargo.toml`).
+- **Package names:** substitute the real `src-tauri` crate name for `ldiff-desktop` (check `src-tauri/Cargo.toml`).

@@ -49,7 +49,7 @@ export function DiffView({
                 </Button>
               </span>
             </TooltipTrigger>
-            <TooltipContent><p>Copy right entry to left</p></TooltipContent>
+            <TooltipContent><p>{fileMerge ? "Copy the entire right file onto the left (saved bytes on disk, ignores unsaved edits)" : "Copy right entry to left"}</p></TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -61,15 +61,35 @@ export function DiffView({
                 </Button>
               </span>
             </TooltipTrigger>
-            <TooltipContent><p>Copy left entry to right</p></TooltipContent>
+            <TooltipContent><p>{fileMerge ? "Copy the entire left file onto the right (saved bytes on disk, ignores unsaved edits)" : "Copy left entry to right"}</p></TooltipContent>
           </Tooltip>
         </div>
         {fileMerge && (
           <div className="copy-cluster">
-            <Button variant="outline" size="sm" aria-label="Take all to left" onClick={() => onTakeAll("left")}>Take all → left</Button>
-            <Button variant="outline" size="sm" aria-label="Take all to right" onClick={() => onTakeAll("right")}>Take all → right</Button>
-            <Button variant="outline" size="sm" aria-label="Move hunk to left" onClick={() => onMoveHunk("left")}>Move hunk → left</Button>
-            <Button variant="outline" size="sm" aria-label="Move hunk to right" onClick={() => onMoveHunk("right")}>Move hunk → right</Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" aria-label="Take all into left" onClick={() => onTakeAll("left")}>← Take all</Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Replace the left pane with the right pane's current content (includes unsaved edits)</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" aria-label="Take all into right" onClick={() => onTakeAll("right")}>Take all →</Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Replace the right pane with the left pane's current content (includes unsaved edits)</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" aria-label="Move hunk into left" onClick={() => onMoveHunk("left")}>← Move hunk</Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Move the change at the cursor into the left pane and remove it from the right</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="sm" aria-label="Move hunk into right" onClick={() => onMoveHunk("right")}>Move hunk →</Button>
+              </TooltipTrigger>
+              <TooltipContent><p>Move the change at the cursor into the right pane and remove it from the left</p></TooltipContent>
+            </Tooltip>
           </div>
         )}
         <div className="view-toggle" role="group" aria-label="Diff view mode">

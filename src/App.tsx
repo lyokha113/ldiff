@@ -351,7 +351,25 @@ export function App() {
   async function browse(side: Side) {
     const path = await chooseFile({
       multiple: false,
-      filters: [{ name: "JAR or ZIP archive", extensions: ["jar", "zip"] }],
+      // "All files" is the default so any file is selectable — the backend
+      // opens any file and auto-detects text vs binary. The other entries are
+      // convenience filters that narrow the dialog, not gates.
+      filters: [
+        { name: "All files", extensions: ["*"] },
+        {
+          name: "Text file",
+          extensions: [
+            "json", "xml", "properties", "toml", "sql", "txt", "text", "yaml", "yml",
+            "ini", "cfg", "conf", "config", "env", "md", "markdown", "rst", "csv", "tsv", "log",
+            "js", "jsx", "mjs", "cjs", "ts", "tsx", "html", "htm", "xhtml",
+            "css", "scss", "sass", "less", "java", "kt", "kts", "groovy", "gradle",
+            "rs", "go", "py", "rb", "php", "pl", "lua", "c", "h", "cpp", "hpp", "cc",
+            "cs", "swift", "scala", "dart", "sh", "bash", "zsh", "fish", "bat", "ps1",
+            "svg", "graphql", "gql", "proto", "mf", "plist", "tex", "vue", "svelte", "astro",
+          ],
+        },
+        { name: "JAR or ZIP archive", extensions: ["jar", "zip", "war", "ear"] },
+      ],
     });
     if (path) await openPath(side, path);
   }
