@@ -211,6 +211,39 @@ describe("App file-merge wiring", () => {
     expect(sides).toContain("right");
   });
 
+  it("Discard reverts both editor buffers to the originally loaded preview content", async () => {
+    const user = userEvent.setup();
+    await driveIntoFileCompare(user);
+
+    // Stage an edit so there is something to discard, and sanity-check it fired.
+    await user.click(screen.getByLabelText("Take all into right"));
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("stage_write", {
+        side: "right",
+        entryPath: "config.json",
+        content: LEFT_TEXT,
+      }),
+    );
+
+    // Forget the setValue calls made by staging so the next assertions only see
+    // the revert. The sub-editor spies are stable (created once in onMount), so
+    // clearing them here still observes the discard's setValue calls.
+    setOriginal.mockClear();
+    setModified.mockClear();
+
+    // Discard = MenuBar "Clear staged" → clearStaged().
+    await user.click(screen.getByLabelText("Clear staged"));
+
+    // Backend told to drop staged copies...
+    await waitFor(() =>
+      expect(invoke.mock.calls.some(([cmd]) => cmd === "clear_staged")).toBe(true),
+    );
+    // ...and the visible buffers reverted to the originally loaded preview
+    // (left/right preview content from read_entry == LEFT_TEXT / RIGHT_TEXT).
+    await waitFor(() => expect(setOriginal).toHaveBeenCalledWith(LEFT_TEXT));
+    expect(setModified).toHaveBeenCalledWith(RIGHT_TEXT);
+  });
+
   it("Save commits every dirty side via commit_merge", async () => {
     const user = userEvent.setup();
     await driveIntoFileCompare(user);

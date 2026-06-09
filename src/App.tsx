@@ -612,6 +612,17 @@ export function App() {
     await invoke("clear_staged");
     setStagedTarget(undefined);
     setStagedEntries({});
+    // Revert the visible editor buffers to the originally loaded content so the
+    // discard takes effect immediately, without needing a reload. `preview`
+    // holds the on-disk content captured when the entry was opened; edits live
+    // only in the Monaco models until staged, so resetting the models discards
+    // them. Compare/file-merge uses the diff editor; single mode uses editBuffer.
+    const ed = diffEditorRef.current;
+    if (ed) {
+      ed.getOriginalEditor().setValue(preview.left?.content ?? "");
+      ed.getModifiedEditor().setValue(preview.right?.content ?? "");
+    }
+    setEditBuffer(preview.left?.content ?? "");
     setMessage("Cleared unsaved changes.");
   }
 

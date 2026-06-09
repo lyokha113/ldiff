@@ -38,6 +38,7 @@ export function DiffView({
   return (
     <div className="editor-panel">
       <div className="copy-actions">
+        {/* Left-anchored: actions whose target is the LEFT pane. */}
         <div className="copy-cluster">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -51,6 +52,41 @@ export function DiffView({
             </TooltipTrigger>
             <TooltipContent><p>{fileMerge ? "Copy the entire right file onto the left (saved bytes on disk, ignores unsaved edits)" : "Copy right entry to left"}</p></TooltipContent>
           </Tooltip>
+          {fileMerge && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" aria-label="Take all into left" onClick={() => onTakeAll("left")}>← Take all</Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Replace the left pane with the right pane's current content (includes unsaved edits)</p></TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" aria-label="Move hunk into left" onClick={() => onMoveHunk("left")}>← Move hunk</Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Move the change at the cursor into the left pane and remove it from the right</p></TooltipContent>
+              </Tooltip>
+            </>
+          )}
+        </div>
+        {/* Right-anchored: actions whose target is the RIGHT pane, plus the view toggle. */}
+        <div className="copy-cluster">
+          {fileMerge && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" aria-label="Take all into right" onClick={() => onTakeAll("right")}>Take all →</Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Replace the right pane with the left pane's current content (includes unsaved edits)</p></TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="sm" aria-label="Move hunk into right" onClick={() => onMoveHunk("right")}>Move hunk →</Button>
+                </TooltipTrigger>
+                <TooltipContent><p>Move the change at the cursor into the right pane and remove it from the left</p></TooltipContent>
+              </Tooltip>
+            </>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <span>
@@ -63,53 +99,25 @@ export function DiffView({
             </TooltipTrigger>
             <TooltipContent><p>{fileMerge ? "Copy the entire left file onto the right (saved bytes on disk, ignores unsaved edits)" : "Copy left entry to right"}</p></TooltipContent>
           </Tooltip>
-        </div>
-        {fileMerge && (
-          <div className="copy-cluster">
+          <div className="view-toggle" role="group" aria-label="Diff view mode">
+            <Button variant={viewMode === "source" ? "secondary" : "ghost"} size="sm"
+              aria-label="Show source" aria-pressed={viewMode === "source"}
+              disabled={!selected} onClick={onShowSource}>
+              <Code /> Source
+            </Button>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" aria-label="Take all into left" onClick={() => onTakeAll("left")}>← Take all</Button>
+                <span>
+                  <Button variant={viewMode === "bytecode" ? "secondary" : "ghost"} size="sm"
+                    aria-label="Show bytecode" aria-pressed={viewMode === "bytecode"}
+                    disabled={!pairHasClass(selected)} onClick={onShowBytecode}>
+                    <Binary /> Bytecode
+                  </Button>
+                </span>
               </TooltipTrigger>
-              <TooltipContent><p>Replace the left pane with the right pane's current content (includes unsaved edits)</p></TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" aria-label="Take all into right" onClick={() => onTakeAll("right")}>Take all →</Button>
-              </TooltipTrigger>
-              <TooltipContent><p>Replace the right pane with the left pane's current content (includes unsaved edits)</p></TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" aria-label="Move hunk into left" onClick={() => onMoveHunk("left")}>← Move hunk</Button>
-              </TooltipTrigger>
-              <TooltipContent><p>Move the change at the cursor into the left pane and remove it from the right</p></TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="sm" aria-label="Move hunk into right" onClick={() => onMoveHunk("right")}>Move hunk →</Button>
-              </TooltipTrigger>
-              <TooltipContent><p>Move the change at the cursor into the right pane and remove it from the left</p></TooltipContent>
+              <TooltipContent><p>Open ASM bytecode for class entries; useful for metadata-only differences.</p></TooltipContent>
             </Tooltip>
           </div>
-        )}
-        <div className="view-toggle" role="group" aria-label="Diff view mode">
-          <Button variant={viewMode === "source" ? "secondary" : "ghost"} size="sm"
-            aria-label="Show source" aria-pressed={viewMode === "source"}
-            disabled={!selected} onClick={onShowSource}>
-            <Code /> Source
-          </Button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button variant={viewMode === "bytecode" ? "secondary" : "ghost"} size="sm"
-                  aria-label="Show bytecode" aria-pressed={viewMode === "bytecode"}
-                  disabled={!pairHasClass(selected)} onClick={onShowBytecode}>
-                  <Binary /> Bytecode
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent><p>Open ASM bytecode for class entries; useful for metadata-only differences.</p></TooltipContent>
-          </Tooltip>
         </div>
       </div>
       <div className="editors">
