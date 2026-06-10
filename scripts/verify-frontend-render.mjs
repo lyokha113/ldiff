@@ -77,6 +77,9 @@ try {
     }
   });
   mockedPage.on("pageerror", (error) => {
+    // Monaco throws a benign CancellationError ("Canceled") when its editors are
+    // torn down between selections; it is not a real page failure.
+    if (error.message === "Canceled" || error.name === "Canceled") return;
     mockMessages.push(`pageerror: ${error.stack || error.message}`);
   });
   await mockedPage.addInitScript(() => {
@@ -286,13 +289,16 @@ try {
   await archiveInput().press("Enter");
   await closePopover();
 
-  // Tree filter (in the always-visible SearchBar): Only right hides left-only.
+  // Tree filter (in the always-visible SearchBar): Identical hides non-identical rows.
   await mockedPage.getByRole("combobox", { name: "Tree filter" }).click();
-  await mockedPage.getByRole("option", { name: "Only right" }).click();
-  await mockedPage.locator(".tree-file", { hasText: "right-only.txt" }).waitFor({ timeout: 5_000 });
+  await mockedPage.getByRole("option", { name: "Identical" }).click();
+  await mockedPage.locator(".tree-file", { hasText: "right-only.txt" }).waitFor({ state: "detached", timeout: 5_000 });
   if (await mockedPage.locator(".tree-file", { hasText: "left-only.txt" }).count()) {
-    throw new Error("Only right filter still showed left-only row");
+    throw new Error("Identical filter still showed left-only row");
   }
+  // Restore the differences view for the subsequent search assertions.
+  await mockedPage.getByRole("combobox", { name: "Tree filter" }).click();
+  await mockedPage.getByRole("option", { name: "Differences" }).click();
 
   // Search scope lives in the config drawer (closed by default) — open it.
   await mockedPage.getByRole("button", { name: "Settings", exact: true }).click();
@@ -306,7 +312,7 @@ try {
   await mockedPage.locator("text=right text content for right-only.txt").waitFor({ timeout: 5_000 });
 
   await mockedPage.getByRole("combobox", { name: "Tree filter" }).click();
-  await mockedPage.getByRole("option", { name: "Differences only" }).click();
+  await mockedPage.getByRole("option", { name: "Differences" }).click();
   await mockedPage.getByRole("button", { name: "Clear search" }).click();
 
   // Metadata-only detection: identical decompiled source -> differentMetadataOnly badge.
