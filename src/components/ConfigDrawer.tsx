@@ -1,10 +1,11 @@
+import { Binary, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { Engine, Mode, SearchScope } from "@/lib/types";
+import type { Engine, Mode, SearchScope, ViewMode } from "@/lib/types";
 
 interface ConfigDrawerProps {
   open: boolean;
@@ -14,6 +15,9 @@ interface ConfigDrawerProps {
   engine: Engine;
   ignoreTrimWhitespace: boolean;
   backupEnabled: boolean;
+  viewMode: ViewMode;
+  canShowSource: boolean;
+  canShowBytecode: boolean;
   onScopeChange: (scope: SearchScope) => void;
   onDeepSearch: () => void;
   onCancelDeepSearch: () => void;
@@ -21,16 +25,43 @@ interface ConfigDrawerProps {
   onEngineChange: (engine: Engine) => void;
   onIgnoreWhitespaceChange: (value: boolean) => void;
   onBackupEnabledChange: (value: boolean) => void;
+  onShowSource: () => void;
+  onShowBytecode: () => void;
 }
 
 export function ConfigDrawer({
   open, mode, searchScope, searching, engine, ignoreTrimWhitespace, backupEnabled,
+  viewMode, canShowSource, canShowBytecode,
   onScopeChange, onDeepSearch, onCancelDeepSearch, onClearSearch,
   onEngineChange, onIgnoreWhitespaceChange, onBackupEnabledChange,
+  onShowSource, onShowBytecode,
 }: ConfigDrawerProps) {
   if (!open) return <aside className="config-drawer closed" aria-hidden="true" />;
   return (
     <aside className="config-drawer open" aria-label="Configuration">
+      <section className="drawer-group">
+        <span className="zone-label">View</span>
+        <div className="view-toggle" role="group" aria-label="Diff view mode">
+          <Button variant={viewMode === "source" ? "secondary" : "ghost"} size="sm"
+            aria-label="Show source" aria-pressed={viewMode === "source"}
+            disabled={!canShowSource} onClick={onShowSource}>
+            <Code /> Source
+          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button variant={viewMode === "bytecode" ? "secondary" : "ghost"} size="sm"
+                  aria-label="Show bytecode" aria-pressed={viewMode === "bytecode"}
+                  disabled={!canShowBytecode} onClick={onShowBytecode}>
+                  <Binary /> Bytecode
+                </Button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent><p>Open ASM bytecode for class entries; useful for metadata-only differences.</p></TooltipContent>
+          </Tooltip>
+        </div>
+      </section>
+
       <section className="drawer-group">
         <span className="zone-label">Search</span>
         <Select value={searchScope} disabled={mode === "single"}

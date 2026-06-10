@@ -17,10 +17,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const FILE_ENTRY = { path: "config.json", kind: "text" as const, uncompressedSize: 8 };
 
+// Source kind the open_archive mock reports. Default "file" (plain-file compare);
+// tests can flip to "archive" to exercise hunk-merge on entries inside a jar.
+let summarySourceKind: "file" | "archive" = "file";
 function fileSummary(side: "left" | "right") {
   return {
     path: side === "left" ? "/tmp/config.json" : "/tmp/other/config.json",
-    metadata: { sourceKind: "file" as const, signed: false, multiRelease: false, zip64: false },
+    metadata: { sourceKind: summarySourceKind, signed: false, multiRelease: false, zip64: false },
     entries: [FILE_ENTRY],
   };
 }
@@ -98,6 +101,17 @@ const buffers = { left: LEFT_TEXT, right: RIGHT_TEXT };
 const setOriginal = vi.fn((v: string) => { buffers.left = v; });
 const setModified = vi.fn((v: string) => { buffers.right = v; });
 
+// Line changes the fake diff editor reports. Default: a modification on line 2
+// of both sides. Tests can override before render to exercise other hunk shapes
+// (e.g. a right-only addition, where the left side reports endLineNumber 0).
+const MODIFY_LINE_2 = {
+  originalStartLineNumber: 2,
+  originalEndLineNumber: 2,
+  modifiedStartLineNumber: 2,
+  modifiedEndLineNumber: 2,
+};
+let lineChanges: Array<Record<string, number>> = [MODIFY_LINE_2];
+
 function makeFakeDiffEditor() {
   // App's search-highlight effect calls deltaDecorations/revealLineInCenter on
   // each sub-editor whenever preview changes, so the fakes must expose them.
@@ -114,14 +128,7 @@ function makeFakeDiffEditor() {
   return {
     getOriginalEditor: () => original,
     getModifiedEditor: () => modified,
-    getLineChanges: () => [
-      {
-        originalStartLineNumber: 2,
-        originalEndLineNumber: 2,
-        modifiedStartLineNumber: 2,
-        modifiedEndLineNumber: 2,
-      },
-    ],
+    getLineChanges: () => lineChanges,
     onDidDispose: vi.fn(() => ({ dispose: vi.fn() })),
     setModel: vi.fn(),
   };
@@ -175,6 +182,8 @@ describe("App file-merge wiring", () => {
     setModified.mockClear();
     buffers.left = LEFT_TEXT;
     buffers.right = RIGHT_TEXT;
+    lineChanges = [MODIFY_LINE_2];
+    summarySourceKind = "file";
     localStorage.clear();
   });
 
@@ -209,6 +218,42 @@ describe("App file-merge wiring", () => {
     const sides = stageCalls.map(([, args]) => (args as { side: string }).side);
     expect(sides).toContain("left");
     expect(sides).toContain("right");
+  });
+
+  it("Hunk-merge buttons appear for a text entry inside archives, not just plain files", async () => {
+    const user = userEvent.setup();
+    summarySourceKind = "archive"; // both sides are jar/zip, entry is text
+    await driveIntoFileCompare(user);
+
+    // The per-hunk controls gate on the entry being editable text in compare
+    // mode, independent of whether the source is a standalone file or an archive.
+    expect(screen.getByLabelText("Move hunk into left")).toBeInTheDocument();
+    expect(screen.getByLabelText("Move hunk into right")).toBeInTheDocument();
+    expect(screen.getByLabelText("Take all into left")).toBeInTheDocument();
+    expect(screen.getByLabelText("Take all into right")).toBeInTheDocument();
+  });
+
+  it("Move hunk toward the side that already owns the hunk does not delete it", async () => {
+    const user = userEvent.setup();
+    // Right-only addition: the line exists on the right, the left side reports an
+    // empty range (endLineNumber 0). Moving it "into right" has nothing to bring
+    // over and previously wiped the line off the right entirely.
+    lineChanges = [
+      {
+        originalStartLineNumber: 2,
+        originalEndLineNumber: 0,
+        modifiedStartLineNumber: 2,
+        modifiedEndLineNumber: 2,
+      },
+    ];
+    await driveIntoFileCompare(user);
+
+    await user.click(screen.getByLabelText("Move hunk into right"));
+
+    // No buffer is touched and nothing is staged — the content survives.
+    expect(setModified).not.toHaveBeenCalled();
+    expect(setOriginal).not.toHaveBeenCalled();
+    expect(invoke.mock.calls.filter(([cmd]) => cmd === "stage_write")).toHaveLength(0);
   });
 
   it("Discard reverts both editor buffers to the originally loaded preview content", async () => {

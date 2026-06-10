@@ -21,9 +21,9 @@ pub fn detect_entry_kind(path: &str, is_dir: bool) -> EntryKind {
         Some("class") => EntryKind::Class,
         Some("jar" | "zip" | "war" | "ear") => EntryKind::Archive,
         Some(
-            "cfg" | "conf" | "css" | "csv" | "graphql" | "htm" | "html" | "ini" | "java" | "js"
-            | "json" | "kt" | "md" | "mf" | "properties" | "rs" | "sql" | "svg" | "toml" | "ts"
-            | "tsx" | "txt" | "xml" | "yaml" | "yml",
+            "bash" | "cfg" | "conf" | "css" | "csv" | "graphql" | "htm" | "html" | "ini" | "java"
+            | "js" | "json" | "kt" | "md" | "mf" | "properties" | "rs" | "sh" | "sql" | "svg"
+            | "toml" | "ts" | "tsx" | "txt" | "xml" | "yaml" | "yml",
         ) => EntryKind::Text,
         _ => EntryKind::Binary,
     }
@@ -49,5 +49,11 @@ mod tests {
     #[test]
     fn classifies_ini_as_text() {
         assert_eq!(detect_entry_kind("app.ini", false), EntryKind::Text);
+    }
+
+    #[test]
+    fn classifies_shell_scripts_as_text() {
+        assert_eq!(detect_entry_kind("bin/start.sh", false), EntryKind::Text);
+        assert_eq!(detect_entry_kind("deploy.bash", false), EntryKind::Text);
     }
 }

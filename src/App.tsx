@@ -70,7 +70,7 @@ const SIDE_PREFIX_RE = /^(left|right):/;
 const stripSidePrefix = (key: string) => key.replace(SIDE_PREFIX_RE, "");
 
 // Keep in sync with EDITABLE_EXTENSIONS in crates/ldiff-core/src/edit.rs (Rust list is the authority; this list only controls the editor read-only affordance in the UI).
-const EDIT_EXTENSIONS = ["xml", "json", "ini", "txt", "properties", "yaml", "yml", "md", "csv", "cfg", "conf"];
+const EDIT_EXTENSIONS = ["xml", "json", "ini", "txt", "properties", "yaml", "yml", "md", "csv", "cfg", "conf", "sh", "bash"];
 
 function searchResultKey(result: SearchResult) {
   return `${result.tier}:${result.side}:${result.path}:${result.matchKind}:${result.line ?? ""}`;
@@ -715,7 +715,7 @@ export function App() {
   }
 
   async function takeAllTo(target: Side) {
-    if (!isFileMerge || !selected) return;
+    if (!isTextMerge || !selected) return;
     const ed = diffEditorRef.current;
     if (!ed) return;
     const source: Side = target === "left" ? "right" : "left";
@@ -727,7 +727,7 @@ export function App() {
   }
 
   function moveHunkTo(target: Side) {
-    if (!isFileMerge) return;
+    if (!isTextMerge) return;
     const ed = diffEditorRef.current;
     const hunk = currentHunkAtCursor();
     if (!ed || !hunk) return;
@@ -749,6 +749,15 @@ export function App() {
       tEditor = ed.getModifiedEditor();
       sEditor = ed.getOriginalEditor();
       resolvedHunk = hunk;
+    }
+    // A move pulls the hunk's lines from the source side into the target side.
+    // When the source side has no lines for this hunk (the content already lives
+    // only on the target side, e.g. a target-only addition), there is nothing to
+    // move — applying anyway would overwrite the target's real lines with the
+    // empty source range and delete them outright. Skip to avoid data loss.
+    if (resolvedHunk.sourceEnd < resolvedHunk.sourceStart) {
+      setMessage("Nothing to move: the hunk at the cursor only exists on this side.");
+      return;
     }
     const res = moveHunk(tEditor.getValue(), sEditor.getValue(), resolvedHunk);
     tEditor.setValue(res.target);
@@ -858,6 +867,19 @@ export function App() {
     archives.left?.metadata.sourceKind === "file" &&
     archives.right?.metadata.sourceKind === "file";
 
+  // Per-hunk merge (Take all / Move hunk, editable diff) applies to ANY compare
+  // where both sides show the same entry as editable text — standalone plain
+  // files AND text entries inside jar/zip archives. `isFileMerge` (sourceKind
+  // file) only changes the copy-arrow wording now.
+  const sideEditableText = (p?: EntryPreview) =>
+    !!p &&
+    p.kind !== "class" &&
+    p.kind !== "directory" &&
+    (p.kind === "text" ||
+      EDIT_EXTENSIONS.includes(p.path.split(".").pop()?.toLowerCase() ?? ""));
+  const isTextMerge =
+    mode === "compare" && sideEditableText(preview.left) && sideEditableText(preview.right);
+
   const isEditableEntry =
     mode === "single" &&
     viewMode === "source" &&
@@ -936,11 +958,8 @@ export function App() {
                 mode={mode}
                 selected={selected}
                 preview={preview}
-                viewMode={viewMode}
                 ignoreTrimWhitespace={ignoreTrimWhitespace}
                 onCopy={(from, to) => void copy(from, to)}
-                onShowSource={() => selected && void inspect(selected, true)}
-                onShowBytecode={showBytecode}
                 onEditorMount={handleEditorMount}
                 onDiffMount={handleDiffMount}
                 editable={isEditableEntry}
@@ -948,6 +967,7 @@ export function App() {
                 onEditChange={(value) => setEditBuffer(value ?? "")}
                 onEditBlur={(content) => selected && void stageEdit(selected.path, content)}
                 fileMerge={isFileMerge}
+                hunkMerge={isTextMerge}
                 onDiffEditEither={(side, content) => void stageFileSide(side, content)}
                 onTakeAll={(t) => void takeAllTo(t)}
                 onMoveHunk={(t) => void moveHunkTo(t)}
@@ -963,6 +983,9 @@ export function App() {
           engine={engine}
           ignoreTrimWhitespace={ignoreTrimWhitespace}
           backupEnabled={backupEnabled}
+          viewMode={viewMode}
+          canShowSource={!!selected}
+          canShowBytecode={pairHasClass(selected)}
           onScopeChange={setSearchScope}
           onDeepSearch={runDeepSearch}
           onCancelDeepSearch={cancelDeepSearch}
@@ -970,6 +993,8 @@ export function App() {
           onEngineChange={(next) => void changeEngine(next)}
           onIgnoreWhitespaceChange={setIgnoreTrimWhitespace}
           onBackupEnabledChange={setBackupEnabled}
+          onShowSource={() => selected && void inspect(selected, true)}
+          onShowBytecode={showBytecode}
         />
       </div>
       <p className="message">{message}</p>

@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DiffView } from "@/components/DiffView";
@@ -19,11 +18,11 @@ const classPair: ComparePair = {
 function setup(overrides = {}) {
   const props = {
     mode: "compare" as const, selected: classPair, preview: {},
-    viewMode: "source" as const, ignoreTrimWhitespace: true,
-    onCopy: vi.fn(), onShowSource: vi.fn(), onShowBytecode: vi.fn(),
+    ignoreTrimWhitespace: true,
+    onCopy: vi.fn(),
     onEditorMount: vi.fn(), onDiffMount: vi.fn(),
     editable: false, editValue: "", onEditChange: vi.fn(), onEditBlur: vi.fn(),
-    fileMerge: false, onDiffEditEither: vi.fn(), onTakeAll: vi.fn(), onMoveHunk: vi.fn(),
+    fileMerge: false, hunkMerge: false, onDiffEditEither: vi.fn(), onTakeAll: vi.fn(), onMoveHunk: vi.fn(),
     ...overrides,
   };
   render(<TooltipProvider><DiffView {...props} /></TooltipProvider>);
@@ -39,24 +38,5 @@ describe("DiffView", () => {
     setup({ mode: "single" });
     expect(screen.getByLabelText("Copy to left")).toBeDisabled();
     expect(screen.getByLabelText("Copy to right")).toBeDisabled();
-  });
-  it("marks Bytecode toggle disabled when selection has no class entry", () => {
-    setup({ selected: { path: "x.txt", status: "different", left: { path: "x.txt", kind: "text" } } });
-    expect(screen.getByLabelText("Show bytecode")).toBeDisabled();
-  });
-  it("Source button has aria-pressed=true and Bytecode has aria-pressed=false when viewMode=source", () => {
-    setup();
-    expect(screen.getByLabelText("Show source").getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByLabelText("Show bytecode").getAttribute("aria-pressed")).toBe("false");
-  });
-  it("Bytecode button has aria-pressed=true when viewMode=bytecode", () => {
-    setup({ viewMode: "bytecode" });
-    expect(screen.getByLabelText("Show bytecode").getAttribute("aria-pressed")).toBe("true");
-  });
-  it("clicking Source button calls onShowSource", async () => {
-    const user = userEvent.setup();
-    const props = setup();
-    await user.click(screen.getByLabelText("Show source"));
-    expect(props.onShowSource).toHaveBeenCalledTimes(1);
   });
 });

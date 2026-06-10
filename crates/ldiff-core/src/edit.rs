@@ -6,7 +6,8 @@ use crate::{ArchiveEntry, EntryKind};
 /// entry binary. Lower-case, compared case-insensitively.
 /// Keep in sync with EDIT_EXTENSIONS in src/App.tsx (this list is the authority; the JS list only controls the editor read-only affordance in the UI).
 const EDITABLE_EXTENSIONS: &[&str] = &[
-    "xml", "json", "ini", "txt", "properties", "yaml", "yml", "md", "csv", "cfg", "conf",
+    "xml", "json", "ini", "txt", "properties", "yaml", "yml", "md", "csv", "cfg", "conf", "sh",
+    "bash",
 ];
 
 const UTF8_BOM: &[u8] = &[0xEF, 0xBB, 0xBF];
