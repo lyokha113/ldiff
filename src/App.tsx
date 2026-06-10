@@ -111,7 +111,7 @@ export function App() {
   const [selected, setSelected] = useState<ComparePair>();
   const [preview, setPreview] = useState<Partial<Record<Side, EntryPreview>>>({});
   const [message, setMessage] = useState("Open a JAR, ZIP, or folder on each side.");
-  const [treeFilter, setTreeFilter] = useState<TreeFilter>("differences");
+  const [treeFilter, setTreeFilter] = useState<TreeFilter>("diff");
   const [engine, setEngine] = useState<Engine>("cfr");
   const [query, setQuery] = useState("");
   const [searchScope, setSearchScope] = useState<SearchScope>("both");

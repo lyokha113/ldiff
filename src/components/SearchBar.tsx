@@ -31,9 +31,8 @@ export function SearchBar({ open, query, treeFilter, onQueryChange, onSearch, on
         <SelectTrigger aria-label="Tree filter"><SelectValue /></SelectTrigger>
         <SelectContent><SelectGroup>
           <SelectItem value="all">Show all</SelectItem>
-          <SelectItem value="differences">Differences only</SelectItem>
-          <SelectItem value="onlyLeft">Only left</SelectItem>
-          <SelectItem value="onlyRight">Only right</SelectItem>
+          <SelectItem value="diff">Differences</SelectItem>
+          <SelectItem value="same">Identical</SelectItem>
         </SelectGroup></SelectContent>
       </Select>
     </div>
