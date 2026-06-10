@@ -116,8 +116,6 @@ export function DiffView({
               renderMarginRevertIcon: hunkMerge,
               minimap: { enabled: false },
               renderSideBySide: true,
-              useInlineViewWhenSpaceIsLimited: true,
-              renderSideBySideInlineBreakpoint: 720,
               automaticLayout: true,
               ignoreTrimWhitespace,
             }}

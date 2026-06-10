@@ -81,7 +81,7 @@ describe("FileTree", () => {
         visiblePairs={pairs}
         stagedEntries={{}}
         mode="compare"
-        treeFilter="differences"
+        treeFilter="diff"
         nestedPairs={nestedPairs}
         onInspect={() => {}}
         onSelect={() => {}}

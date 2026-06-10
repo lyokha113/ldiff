@@ -5,7 +5,7 @@ import { SearchBar } from "@/components/SearchBar";
 
 function setup(overrides = {}) {
   const props = {
-    open: true, query: "", treeFilter: "differences" as const,
+    open: true, query: "", treeFilter: "diff" as const,
     onQueryChange: vi.fn(), onSearch: vi.fn(), onFilterChange: vi.fn(),
     ...overrides,
   };
