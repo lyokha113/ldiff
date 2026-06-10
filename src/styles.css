@@ -451,15 +451,6 @@ h1 {
   background: color-mix(in oklab, var(--ink-1) 94%, transparent);
   border-bottom: 1px solid var(--line);
 }
-/* Continuous vertical dividers bounding the fixed 64px center column. */
-.tree-two-pane {
-  background-image:
-    linear-gradient(var(--line), var(--line)),
-    linear-gradient(var(--line), var(--line));
-  background-size: 1px 100%, 1px 100%;
-  background-position: calc(50% - 32px) 0, calc(50% + 32px) 0;
-  background-repeat: no-repeat;
-}
 .tree-header .tree-half {
   justify-content: center;
   padding: 0 8px;
@@ -479,11 +470,21 @@ h1 {
   flex: 1 1 auto;
   min-width: 0;
 }
+/* Center change column: continuous vertical rules that track the real grid
+   column (border on every stacked cell), immune to scrollbar offset. */
 .tree-mid {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4px;
+  padding: 2px 4px;
+  overflow: hidden;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+.tree-mid .status-chip,
+.tree-mid .folder-rollup {
+  max-width: 100%;
+  box-sizing: border-box;
 }
 .tree-gap {
   flex: 1 1 auto;
