@@ -24,3 +24,6 @@ target-linux/
 linux-bundle/
 linux-bundle-amd64/
 docker/last-run-screenshot.png
+
+# release build artifacts
+artifacts/

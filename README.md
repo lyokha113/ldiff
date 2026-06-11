@@ -21,9 +21,56 @@ merge copies the original entry bytes, never the decompiled view.
 
 # For Users
 
-> **No prebuilt installer yet.** There is no Releases download at this time, so
-> you run LDiff from source. The steps below get a working app from a clean
-> clone. You build it once, then launch it whenever you want.
+> **Prebuilt downloads are available.** Grab the installer for your platform
+> from the [**Releases**](https://github.com/lyokha113/ldiff/releases/latest)
+> page — no toolchain or build step required. Prefer building from source? Skip
+> to [Build and run](#build-and-run).
+
+## Download and install (prebuilt)
+
+Each release ships an installer per platform plus a matching `install-*.sh`
+helper that places the app where your system expects it (so you don't copy
+files by hand).
+
+### macOS (Apple Silicon)
+
+1. Download `LDiff-<version>-aarch64.dmg` and `install-macos.sh` from the
+   [latest release](https://github.com/lyokha113/ldiff/releases/latest).
+2. Run the installer (both files in the same folder):
+
+   ```bash
+   bash install-macos.sh                 # copies LDiff.app to /Applications
+   LDIFF_LINK_CLI=1 bash install-macos.sh   # also adds an `ldiff` CLI launcher
+   ```
+
+   LDiff is **unsigned** (no Apple Developer ID), so the script clears the
+   Gatekeeper quarantine flag for you. Without it macOS reports the app as
+   "damaged". To do it by hand instead: drag `LDiff.app` to `/Applications`,
+   then `xattr -dr com.apple.quarantine /Applications/LDiff.app`.
+
+3. Launch from Spotlight/Launchpad, or `open -a LDiff`.
+
+### Linux (Ubuntu 22.04+ / glibc 2.35+)
+
+Two artifacts ship: a portable **AppImage** (runs on any recent distro) and a
+**`.deb`** (Debian/Ubuntu). The `install-linux.sh` helper handles either —
+pass it whichever you downloaded:
+
+```bash
+bash install-linux.sh LDiff_<version>_amd64.AppImage   # -> ~/.local/bin/ldiff + app menu entry
+bash install-linux.sh LDiff_<version>_amd64.deb        # -> system install via apt (sudo)
+```
+
+The AppImage path needs no root and adds an `ldiff` command plus a desktop
+entry. On Wayland, if drag-and-drop misbehaves, launch with
+`GDK_BACKEND=x11 ldiff`.
+
+> The Linux release is built for **x86_64**. For ARM Linux, build from source
+> (see [For Developers](#building-and-packaging-linux)).
+
+---
+
+> The rest of this section is for running from source instead of a download.
 
 ## Prerequisites
 
@@ -241,7 +288,27 @@ System dependencies it installs:
 
 Bundles land under `target/release/bundle/` (`appimage/*.AppImage`, `deb/*.deb`).
 The **AppImage** is the portable artifact for both distros; the `.deb` targets
-Debian/Ubuntu. On Wayland, prefer Browse and path input to open files; if
+Debian/Ubuntu.
+
+### Cross-building Linux bundles from macOS (Docker)
+
+Linux bundles cannot be cross-built natively from macOS, but you can build them
+in an Ubuntu container with every dependency baked in:
+
+```bash
+docker/build-linux-docker.sh                 # host arch (arm64 on Apple Silicon)
+docker/build-linux-docker.sh --arch amd64    # x86_64 bundle (the release target)
+docker/build-linux-docker.sh --arch amd64 --bundles appimage,deb
+```
+
+The wrapper runs `scripts/build-linux.sh --no-deps` inside the image, builds a
+Linux jlink JRE in-container (so the bundled runtime has the right arch), and
+keeps your host `node_modules/` and `target/` untouched via named volumes.
+`docker/run-linux-docker.sh` launches the built AppImage headlessly under Xvfb
+and screenshots it to prove the GUI renders. The full release flow is in
+[`docs/RELEASING.md`](docs/RELEASING.md).
+
+On Wayland, prefer Browse and path input to open files; if
 drag-and-drop misbehaves, relaunch under XWayland with
 `LDIFF_FORCE_XWAYLAND=1 scripts/launch-linux-xwayland.sh /path/to/LDiff`.
 
@@ -318,6 +385,7 @@ Product and build references:
 - `docs/LDIFF_COMPLETION_AUDIT.md` — completion audit with proof evidence.
 - `docs/PLATFORM_VALIDATION.md` — external platform validation gates.
 - `docs/OPERATIONS_MACOS.md` — macOS sign / notarize / package / verify runbook.
+- `docs/RELEASING.md` — end-to-end release runbook (macOS + Linux artifacts).
 - `docs/GLOSSARY.md` — shared terms.
 
 ## Contributing
