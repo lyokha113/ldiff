@@ -95,6 +95,16 @@ describe("buildTree", () => {
     expect(pkg.children.map((n) => n.name)).toEqual(["Outer.class", "Outer$Inner.class"]);
   });
 
+  it("keeps a left-only nested class visible when its parent exists only on the right", () => {
+    const tree = buildTree([
+      { path: "pkg/Outer.class", status: "onlyRight", right: { path: "pkg/Outer.class", kind: "class" } },
+      { path: "pkg/Outer$Inner.class", status: "onlyLeft", left: { path: "pkg/Outer$Inner.class", kind: "class" } },
+    ]);
+    const pkg = tree.find((n) => n.name === "pkg") as TreeFolder;
+
+    expect(pkg.children.map((n) => n.name)).toEqual(["Outer.class", "Outer$Inner.class"]);
+  });
+
   it("keeps a two-sided nested class visible when its parent exists on only one side", () => {
     const tree = buildTree([
       { path: "pkg/Outer.class", status: "onlyLeft", left: { path: "pkg/Outer.class", kind: "class" } },
@@ -108,6 +118,26 @@ describe("buildTree", () => {
     const pkg = tree.find((n) => n.name === "pkg") as TreeFolder;
 
     expect(pkg.children.map((n) => n.name)).toEqual(["Outer.class", "Outer$Inner.class"]);
+  });
+
+  it("hides a two-sided nested class when its parent exists on both sides", () => {
+    const tree = buildTree([
+      {
+        path: "pkg/Outer.class",
+        status: "identical",
+        left: { path: "pkg/Outer.class", kind: "class" },
+        right: { path: "pkg/Outer.class", kind: "class" },
+      },
+      {
+        path: "pkg/Outer$Inner.class",
+        status: "identical",
+        left: { path: "pkg/Outer$Inner.class", kind: "class" },
+        right: { path: "pkg/Outer$Inner.class", kind: "class" },
+      },
+    ]);
+    const pkg = tree.find((n) => n.name === "pkg") as TreeFolder;
+
+    expect(pkg.children.map((n) => n.name)).toEqual(["Outer.class"]);
   });
 
   it("does not hide non-class files that contain a dollar sign", () => {
