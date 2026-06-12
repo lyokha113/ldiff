@@ -85,6 +85,31 @@ describe("buildTree", () => {
     expect(pkg.children.map((n) => n.name)).toEqual(["Outer$Inner.class"]);
   });
 
+  it("keeps a one-sided nested class visible when its parent exists only on the opposite side", () => {
+    const tree = buildTree([
+      { path: "pkg/Outer.class", status: "onlyLeft", left: { path: "pkg/Outer.class", kind: "class" } },
+      { path: "pkg/Outer$Inner.class", status: "onlyRight", right: { path: "pkg/Outer$Inner.class", kind: "class" } },
+    ]);
+    const pkg = tree.find((n) => n.name === "pkg") as TreeFolder;
+
+    expect(pkg.children.map((n) => n.name)).toEqual(["Outer.class", "Outer$Inner.class"]);
+  });
+
+  it("keeps a two-sided nested class visible when its parent exists on only one side", () => {
+    const tree = buildTree([
+      { path: "pkg/Outer.class", status: "onlyLeft", left: { path: "pkg/Outer.class", kind: "class" } },
+      {
+        path: "pkg/Outer$Inner.class",
+        status: "different",
+        left: { path: "pkg/Outer$Inner.class", kind: "class" },
+        right: { path: "pkg/Outer$Inner.class", kind: "class" },
+      },
+    ]);
+    const pkg = tree.find((n) => n.name === "pkg") as TreeFolder;
+
+    expect(pkg.children.map((n) => n.name)).toEqual(["Outer.class", "Outer$Inner.class"]);
+  });
+
   it("does not hide non-class files that contain a dollar sign", () => {
     const tree = buildTree([
       { path: "assets/foo$bar.txt", status: "identical", left: { path: "assets/foo$bar.txt", kind: "text" } },

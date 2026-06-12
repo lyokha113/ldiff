@@ -96,15 +96,23 @@ function finalize(folder: MutableFolder, fileLists: Map<MutableFolder, TreeFile[
       children: finalize(child, fileLists),
     }));
   const rawFiles = fileLists.get(folder) ?? [];
-  const parentClassNames = new Set(
+  const leftParentClassNames = new Set(
     rawFiles
-      .filter((file) => file.name.endsWith(".class") && !parentClassLeafName(file.name))
+      .filter((file) => file.pair.left && file.name.endsWith(".class") && !parentClassLeafName(file.name))
+      .map((file) => file.name),
+  );
+  const rightParentClassNames = new Set(
+    rawFiles
+      .filter((file) => file.pair.right && file.name.endsWith(".class") && !parentClassLeafName(file.name))
       .map((file) => file.name),
   );
   const files = rawFiles
     .filter((file) => {
       const parent = parentClassLeafName(file.name);
-      return !parent || !parentClassNames.has(parent);
+      if (!parent) return true;
+      const leftHasParent = !file.pair.left || leftParentClassNames.has(parent);
+      const rightHasParent = !file.pair.right || rightParentClassNames.has(parent);
+      return !(leftHasParent && rightHasParent);
     })
     .sort((a, b) => a.name.localeCompare(b.name));
   return [...folders, ...files];
