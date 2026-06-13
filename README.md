@@ -10,8 +10,9 @@ merge copies the original entry bytes, never the decompiled view.
   rows, Monaco source/bytecode diff, and text/hex preview.
 - **Merge** — stage original entry bytes from one side to the other, review
   pending changes, then save atomically with an optional `.bak` backup.
-- **Decompile** — CFR / Vineflower source and ASM bytecode through an isolated
-  JVM sidecar that may degrade independently when the JVM is absent.
+- **Decompile** — Vineflower source by default, CFR as an alternate engine, and
+  ASM bytecode through an isolated JVM sidecar that may degrade independently
+  when the JVM is absent.
 
 > This README has two parts. **[For Users](#for-users)** if you just want to
 > install and run LDiff. **[For Developers](#for-developers)** if you want to
@@ -171,7 +172,7 @@ Rust src-tauri  (commands, async adapters)
         |
 Rust ldiff-core  (archive state, staged bytes, CRC diff, search, save)
         |  framed stdio
-JVM decompiler sidecar  (CFR / Vineflower / ASM, jlink Java 17)
+JVM decompiler sidecar  (Vineflower default / CFR / ASM, jlink Java 17)
 ```
 
 The frontend never owns bytes. Rust owns archive state, staged changes, and the
@@ -191,8 +192,9 @@ LDiff is built from four layers:
   picker, file drop, resizable tree/editor panels, context-menu merge actions,
   staged copy, signed-save confirmation, and async adapters for
   ZIP/folder/decompiler long operations.
-- **JVM decompiler sidecar** — CFR / Vineflower / ASM over framed stdio with a
-  versioned LRU cache and a bundled Java 17 jlink JRE.
+- **JVM decompiler sidecar** — Vineflower source by default, CFR source as an
+  alternate engine, and ASM bytecode over framed stdio with a versioned LRU
+  cache and a bundled Java 17 jlink JRE.
 
 ## Repository Layout
 
