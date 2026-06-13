@@ -8,8 +8,9 @@ use std::{
 
 use ldiff_core::{
     Archive, ArchiveDiff, ArchiveEntry, ArchiveMetadata, ArchiveSourceKind, CommitOptions,
-    CommitResult, DecompileEngine, EntryKind, MergePlan, NestedArchiveCache, compare, edit,
-    search_constant_pool, validate_path as validate_archive_path,
+    CommitResult, DEFAULT_DECOMPILE_ENGINE, DecompileEngine, EntryKind, MergePlan,
+    NestedArchiveCache, compare, edit, search_constant_pool,
+    validate_path as validate_archive_path,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -77,7 +78,7 @@ impl AppState {
             right_nested: NestedArchiveCache::new().expect("temp dir for nested cache"),
             left_plan: MergePlan::new(),
             right_plan: MergePlan::new(),
-            engine: DecompileEngine::Cfr,
+            engine: DEFAULT_DECOMPILE_ENGINE,
             sidecar: Arc::new(Mutex::new(sidecar)),
             prefetch_sidecar: Arc::new(Mutex::new(prefetch_sidecar)),
             deep_search_sidecar: Arc::new(Mutex::new(deep_search_sidecar)),
@@ -1004,6 +1005,13 @@ mod tests {
         language_for_path, platform_hints_from, read_entry_preview, search_archive, validate_path,
     };
     use ldiff_core::{Archive, DecompileEngine};
+
+    #[test]
+    fn app_state_defaults_to_vineflower() {
+        let state = AppState::default();
+
+        assert_eq!(state.engine, DecompileEngine::Vineflower);
+    }
 
     #[test]
     fn staged_target_lock_blocks_switching_target_and_archive() {
