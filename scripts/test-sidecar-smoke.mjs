@@ -48,16 +48,15 @@ try {
 
   const archive = join(tmp, "hello.jar");
   assertOk(await request(child, pending, { id: "p1", action: "ping" }));
-  assertIncludes(
-    await request(child, pending, {
-      id: "c1",
-      action: "decompile",
-      engine: "cfr",
-      classpath: [archive],
-      entry: "demo/Hello.class",
-    }),
-    "hello-ldiff",
-  );
+  const cfrDecompiler = await request(child, pending, {
+    id: "c1",
+    action: "decompile",
+    engine: "cfr",
+    classpath: [archive],
+    entry: "demo/Hello.class",
+  });
+  assertIncludes(cfrDecompiler, "hello-ldiff");
+  assertIncludes(cfrDecompiler, "Decompiled with CFR");
   assertIncludes(
     await request(child, pending, {
       id: "a1",
@@ -132,7 +131,9 @@ function assertIncludes(response, expected) {
 
 function assertNotIncludes(response, unexpected) {
   assertOk(response);
-  if (response.source?.includes(unexpected)) throw new Error(JSON.stringify(response));
+  if (response.source?.includes(unexpected)) {
+    throw new Error(`unexpected ${JSON.stringify(unexpected)} in ${JSON.stringify(response)}`);
+  }
 }
 
 function run(command, args) {
