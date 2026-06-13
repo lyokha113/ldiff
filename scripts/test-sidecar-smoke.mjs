@@ -87,16 +87,14 @@ try {
     }),
     "anon",
   );
-  assertIncludes(
-    await request(child, pending, {
-      id: "v1",
-      action: "decompile",
-      engine: "vineflower",
-      classpath: [archive],
-      entry: "demo/Hello.class",
-    }),
-    "hello-ldiff",
-  );
+  const defaultDecompiler = await request(child, pending, {
+    id: "default-vineflower",
+    action: "decompile",
+    classpath: [archive],
+    entry: "demo/Hello.class",
+  });
+  assertIncludes(defaultDecompiler, "hello-ldiff");
+  assertNotIncludes(defaultDecompiler, "Decompiled with CFR");
   const malformed = await request(child, pending, {
     id: "malformed",
     action: "disassemble",
@@ -130,6 +128,11 @@ function assertOk(response) {
 function assertIncludes(response, expected) {
   assertOk(response);
   if (!response.source?.includes(expected)) throw new Error(JSON.stringify(response));
+}
+
+function assertNotIncludes(response, unexpected) {
+  assertOk(response);
+  if (response.source?.includes(unexpected)) throw new Error(JSON.stringify(response));
 }
 
 function run(command, args) {
