@@ -221,7 +221,7 @@ if (!searchSidesBody.includes('if (mode === "single") return ["left"];')) {
 const searchListenerBody = app.match(/listen<\{ searchId: number; completed: number; total: number; entryPath: string \}>\("search-progress"([\s\S]*?)\n    return \(\) =>/)?.[1] ?? "";
 if (
   !searchListenerBody.includes("event.payload.searchId !== searchStreamId.current") ||
-  !searchListenerBody.includes('listen<{ searchId: number; side: Side; hit: SearchHit }>("search-result"')
+  !searchListenerBody.includes('listen<{ searchId: number; side: Side; hit: BackendSearchHit }>("search-result"')
 ) {
   failures.push("src/App.tsx: streamed deep-search events must ignore stale search ids");
 }
