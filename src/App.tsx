@@ -16,8 +16,6 @@ import {
   type MonacoApi,
   type PairStatus,
   type PlatformHints,
-  type SearchHit,
-  type SearchResult,
   type SearchScope,
   type SearchTier,
   type Side,
@@ -73,7 +71,18 @@ const stripSidePrefix = (key: string) => key.replace(SIDE_PREFIX_RE, "");
 // Keep in sync with EDITABLE_EXTENSIONS in crates/ldiff-core/src/edit.rs (Rust list is the authority; this list only controls the editor read-only affordance in the UI).
 const EDIT_EXTENSIONS = ["xml", "json", "ini", "txt", "properties", "yaml", "yml", "md", "csv", "cfg", "conf", "sh", "bash"];
 
-function searchResultKey(result: SearchResult) {
+interface LegacySearchHit {
+  path: string;
+  matchKind: string;
+  line?: number;
+}
+
+interface LegacySearchResult extends LegacySearchHit {
+  side: Side;
+  tier: SearchTier;
+}
+
+function searchResultKey(result: LegacySearchResult) {
   return `${result.tier}:${result.side}:${result.path}:${result.matchKind}:${result.line ?? ""}`;
 }
 
@@ -117,8 +126,8 @@ export function App() {
   const [query, setQuery] = useState("");
   const [searchScope, setSearchScope] = useState<SearchScope>("both");
   const [searchPaths, setSearchPaths] = useState<Set<string>>();
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [selectedSearchResult, setSelectedSearchResult] = useState<SearchResult>();
+  const [searchResults, setSearchResults] = useState<LegacySearchResult[]>([]);
+  const [selectedSearchResult, setSelectedSearchResult] = useState<LegacySearchResult>();
   const [mode, setMode] = useState<Mode>("compare");
   const [view, setView] = useState<"splash" | "workspace">("splash");
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
@@ -290,7 +299,7 @@ export function App() {
     }).then((stop) => {
       unlistenProgress = stop;
     });
-    listen<{ searchId: number; side: Side; hit: SearchHit }>("search-result", (event) => {
+    listen<{ searchId: number; side: Side; hit: LegacySearchHit }>("search-result", (event) => {
       if (event.payload.searchId !== searchStreamId.current) return;
       const result = { side: event.payload.side, tier: "T3" as const, ...event.payload.hit };
       setSearchPaths((current) => new Set([...(current ?? []), result.path]));
@@ -773,10 +782,10 @@ export function App() {
     setSearching(false);
     try {
       const matches = new Set<string>();
-      const results: SearchResult[] = [];
+      const results: LegacySearchResult[] = [];
       for (const side of searchSides()) {
         if (!archives[side]) continue;
-        for (const hit of await invoke<SearchHit[]>("search", { side, query })) {
+        for (const hit of await invoke<LegacySearchHit[]>("search", { side, query })) {
           if (searchStreamId.current !== searchId) return;
           matches.add(hit.path);
           results.push({ side, tier: "T2", ...hit });
@@ -802,10 +811,10 @@ export function App() {
     setSearchResults([]);
     try {
       const matches = new Set<string>();
-      const results: SearchResult[] = [];
+      const results: LegacySearchResult[] = [];
       for (const side of searchSides()) {
         if (!archives[side]) continue;
-        for (const hit of await invoke<SearchHit[]>("deep_search", { side, query, searchId })) {
+        for (const hit of await invoke<LegacySearchHit[]>("deep_search", { side, query, searchId })) {
           if (searchStreamId.current !== searchId) return;
           matches.add(hit.path);
           results.push({ side, tier: "T3", ...hit });
@@ -843,7 +852,7 @@ export function App() {
     setSelectedSearchResult(undefined);
   }
 
-  function inspectSearchResult(result: SearchResult) {
+  function inspectSearchResult(result: LegacySearchResult) {
     const pair = displayedPairs.find((candidate) => candidate.path === result.path);
     if (!pair) return;
     if (!pairPassesTreeFilter(pair, treeFilter)) setTreeFilter("all");
