@@ -1048,6 +1048,9 @@ export function App() {
                 selected={selected}
                 preview={preview}
                 preferences={preferences}
+                viewMode={viewMode}
+                canShowSource={!!selected}
+                canShowBytecode={pairHasClass(selected)}
                 ignoreTrimWhitespace={ignoreTrimWhitespace}
                 onCopy={(from, to) => void copy(from, to)}
                 onEditorMount={handleEditorMount}
@@ -1061,6 +1064,8 @@ export function App() {
                 onDiffEditEither={(side, content) => void stageFileSide(side, content)}
                 onTakeAll={(t) => void takeAllTo(t)}
                 onMoveHunk={(t) => void moveHunkTo(t)}
+                onShowSource={() => selected && void inspect(selected, true)}
+                onShowBytecode={showBytecode}
               />
             </div>
           </div>

@@ -1,9 +1,9 @@
 import Editor, { DiffEditor, type DiffOnMount, type OnMount } from "@monaco-editor/react";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Binary, Code } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { UiPreferences } from "@/lib/preferences";
-import type { ComparePair, EntryPreview, Mode, Side } from "@/lib/types";
+import type { ComparePair, EntryPreview, Mode, Side, ViewMode } from "@/lib/types";
 
 export function pairHasClass(pair?: ComparePair) {
   return pair?.left?.kind === "class" || pair?.right?.kind === "class";
@@ -14,6 +14,9 @@ interface DiffViewProps {
   selected?: ComparePair;
   preview: Partial<Record<Side, EntryPreview>>;
   preferences: UiPreferences;
+  viewMode: ViewMode;
+  canShowSource: boolean;
+  canShowBytecode: boolean;
   ignoreTrimWhitespace: boolean;
   onCopy: (from: Side, to: Side) => void;
   onEditorMount: OnMount;
@@ -27,13 +30,15 @@ interface DiffViewProps {
   onDiffEditEither: (side: Side, content: string) => void;
   onTakeAll: (target: Side) => void;
   onMoveHunk: (target: Side) => void;
+  onShowSource: () => void;
+  onShowBytecode: () => void;
 }
 
 export function DiffView({
-  mode, selected, preview, preferences, ignoreTrimWhitespace,
+  mode, selected, preview, preferences, viewMode, canShowSource, canShowBytecode, ignoreTrimWhitespace,
   onCopy, onEditorMount, onDiffMount,
   editable, editValue, onEditChange, onEditBlur,
-  fileMerge, hunkMerge, onDiffEditEither, onTakeAll, onMoveHunk,
+  fileMerge, hunkMerge, onDiffEditEither, onTakeAll, onMoveHunk, onShowSource, onShowBytecode,
 }: DiffViewProps) {
   const monacoTheme = preferences.appearance.colorMode === "light" ? "light" : "vs-dark";
   const editorOptions = {
@@ -48,6 +53,29 @@ export function DiffView({
   return (
     <div className="editor-panel">
       <div className="copy-actions">
+        <div className="view-toggle" role="group" aria-label="Diff view mode">
+          <Button
+            variant={viewMode === "source" ? "secondary" : "ghost"}
+            size="sm"
+            aria-label="Show source"
+            aria-pressed={viewMode === "source"}
+            disabled={!canShowSource}
+            onClick={onShowSource}
+          >
+            <Code /> Source
+          </Button>
+          <Button
+            variant={viewMode === "bytecode" ? "secondary" : "ghost"}
+            size="sm"
+            aria-label="Show bytecode"
+            aria-pressed={viewMode === "bytecode"}
+            disabled={!canShowBytecode}
+            onClick={onShowBytecode}
+          >
+            <Binary /> Bytecode
+          </Button>
+        </div>
+
         {/* Far left: copy the whole entry/file onto the LEFT pane. */}
         <Tooltip>
           <TooltipTrigger asChild>

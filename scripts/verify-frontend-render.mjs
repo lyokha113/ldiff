@@ -218,7 +218,7 @@ try {
           return `${args.side.toUpperCase()} ASM BYTECODE for ${args.entryPath}`;
         }
         if (cmd === "search") {
-          return [{ path: "right-only.txt", matchKind: "path" }];
+          return [{ entryPath: "right-only.txt", kind: "path" }];
         }
         if (cmd === "stage_copy") return undefined;
         if (cmd === "unstage") return undefined;
@@ -300,17 +300,16 @@ try {
   await mockedPage.getByRole("combobox", { name: "Tree filter" }).click();
   await mockedPage.getByRole("option", { name: "Differences" }).click();
 
-  // Search scope lives in the config drawer (closed by default) — open it.
-  await mockedPage.getByRole("button", { name: "Settings", exact: true }).click();
   await mockedPage.getByRole("combobox", { name: "Search scope" }).click();
-  await mockedPage.getByRole("option", { name: "Search right" }).click();
+  await mockedPage.getByRole("option", { name: "Right" }).click();
   // Submit via the SearchBar Search button (MenuBar toggle is now "Toggle search").
   await mockedPage.getByPlaceholder("Search paths, text, constants").fill("right-only");
-  await mockedPage.getByRole("button", { name: "Search", exact: true }).click();
+  await mockedPage.getByRole("button", { name: "Search all", exact: true }).click();
   await mockedPage.locator("text=Search matched 1 entries.").waitFor({ timeout: 5_000 });
-  await mockedPage.getByRole("button", { name: "right-only.txt · path · T2 · RIGHT" }).click();
+  await mockedPage.locator(".search-result-row", { hasText: "right-only.txt" }).click();
   await mockedPage.locator("text=right text content for right-only.txt").waitFor({ timeout: 5_000 });
 
+  await showFilesTab();
   await mockedPage.getByRole("combobox", { name: "Tree filter" }).click();
   await mockedPage.getByRole("option", { name: "Differences" }).click();
   await mockedPage.getByRole("button", { name: "Clear search" }).click();
@@ -429,9 +428,11 @@ try {
   // wait for it to fully detach before interacting with the tree again.
   await mockedPage.getByRole("heading", { name: "Signed JAR warning" }).waitFor({ state: "detached", timeout: 5_000 });
 
-  // Re-stage + toggle backup (in config drawer, still open) + save (backup=true,
+  // Re-stage + toggle backup in Preferences > Save + save (backup=true,
   // no second signed prompt thanks to session suppression).
   await selectAppAndStageRight();
+  await mockedPage.getByRole("button", { name: "Preferences", exact: true }).click();
+  await mockedPage.getByRole("button", { name: "Save", exact: true }).click();
   const backupCheckbox = mockedPage.getByLabel("Keep one overwritten .bak on save");
   await backupCheckbox.waitFor({ timeout: 5_000 });
   await backupCheckbox.evaluate((element) => element.click());
