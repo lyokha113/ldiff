@@ -13,13 +13,15 @@ same `[u32 big-endian length][JSON]` framing as
 Actions:
 
 - `ping`
-- `decompile` with `engine: "cfr" | "vineflower"`
+- `decompile` with optional `engine: "cfr" | "vineflower"`; missing `engine`
+  defaults to `"vineflower"`
 - `disassemble`
 - `cancel` acknowledgement
 
-The production app bundles a Java 17 jlink runtime because current Vineflower
-requires Java 17. The source remains Java 8 compatible so CFR, ping, and ASM can
-also be smoke-tested on older development runtimes.
+The production app defaults to Vineflower and bundles a Java 17 jlink runtime
+because current Vineflower requires Java 17. The sidecar source remains Java 8
+compatible so explicit CFR, ping, and ASM can also be smoke-tested on older
+development runtimes.
 
 Build the runtime with a Java 17+ `jlink` executable:
 
