@@ -132,6 +132,27 @@ main.app-shell {
   animation: rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+.app-shell[data-density="comfortable"] {
+  gap: 14px;
+}
+.app-shell[data-radius="sharp"] {
+  --radius: 0.28rem;
+}
+.app-shell[data-radius="soft"] {
+  --radius: 0.8rem;
+}
+.app-shell[data-motion="reduced"],
+.app-shell[data-motion="reduced"] * {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+.tree-row,
+.search-result-row,
+.search-result-path {
+  font-family: var(--font-tree, var(--font-mono));
+  font-size: var(--ldiff-tree-font-size, 0.74rem);
+}
+
 /* ---------- center-focused page layout ---------- */
 .menu-bar, .source-chips, .search-bar { flex: 0 0 auto; }
 .work-area { position: relative; display: flex; flex: 1 1 auto; min-height: 0; gap: 10px; }

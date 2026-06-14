@@ -207,6 +207,23 @@ describe("App file-merge wiring", () => {
     );
   });
 
+  it("applies persisted UI preferences to the app shell", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("ldiff.uiPreferences.v1", JSON.stringify({
+      appearance: { density: "comfortable", radius: "soft", motion: "reduced" },
+      typography: { editorScale: 15 },
+    }));
+
+    render(<App />);
+    await user.click(screen.getByText("Compare / Merge"));
+
+    const shell = await screen.findByRole("main");
+    await waitFor(() => expect(shell.dataset.density).toBe("comfortable"));
+    expect(shell.dataset.radius).toBe("soft");
+    expect(shell.dataset.motion).toBe("reduced");
+    expect(shell.style.getPropertyValue("--ldiff-editor-font-size")).toBe("15px");
+  });
+
   it("Move hunk into left copies into left and removes from right (copy+delete)", async () => {
     const user = userEvent.setup();
     await driveIntoFileCompare(user);

@@ -46,7 +46,7 @@ import { SourceChips } from "@/components/SourceChips";
 import { SearchBar } from "@/components/SearchBar";
 import { DiffView, pairHasClass } from "@/components/DiffView";
 import { type DiffTab, evictLru, pickNeighbor, upsertTab } from "@/lib/tabs";
-import { DEFAULT_UI_PREFERENCES } from "@/lib/preferences";
+import { applyPreferencesToRoot, loadUiPreferences, saveUiPreferences } from "@/lib/preferences";
 import { searchContextForActiveTab } from "@/lib/search";
 import { moveHunk, type Hunk } from "@/lib/textMerge";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
@@ -161,7 +161,8 @@ export function App() {
   const [searchOpen, setSearchOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<"files" | string>("files");
   const [openTabs, setOpenTabs] = useState<DiffTab[]>([]);
-  const [uiPreferences, setUiPreferences] = useState(DEFAULT_UI_PREFERENCES);
+  const [preferences, setPreferences] = useState(loadUiPreferences);
+  const appShellRef = useRef<HTMLElement>(null);
   const focusCounter = useRef(0);
   const openTabsCountRef = useRef(0);
   const previewRequestId = useRef(0);
@@ -174,6 +175,10 @@ export function App() {
   const rightSearchDecorations = useRef<string[]>([]);
   const handleEditorMount = useCallback<OnMount>((editor, monaco) => { editorRef.current = editor; monacoRef.current = monaco; }, []);
   const handleDiffMount = useCallback<DiffOnMount>((editor, monaco) => { diffEditorRef.current = editor; monacoRef.current = monaco; }, []);
+  useEffect(() => {
+    saveUiPreferences(preferences);
+    if (appShellRef.current) applyPreferencesToRoot(appShellRef.current, preferences);
+  }, [preferences, view]);
   const displayedPairs = useMemo<ComparePair[]>(
     () =>
       mode === "compare"
@@ -926,7 +931,7 @@ export function App() {
 
   return (
     <TooltipProvider>
-    <main className="app-shell">
+    <main className="app-shell" ref={appShellRef}>
       <MenuBar
         mode={mode}
         stagedTarget={stagedTarget}
@@ -1006,6 +1011,7 @@ export function App() {
                 mode={mode}
                 selected={selected}
                 preview={preview}
+                preferences={preferences}
                 ignoreTrimWhitespace={ignoreTrimWhitespace}
                 onCopy={(from, to) => void copy(from, to)}
                 onEditorMount={handleEditorMount}
@@ -1029,8 +1035,8 @@ export function App() {
           engine={engine}
           ignoreTrimWhitespace={ignoreTrimWhitespace}
           backupEnabled={backupEnabled}
-          preferences={uiPreferences}
-          onPreferencesChange={setUiPreferences}
+          preferences={preferences}
+          onPreferencesChange={setPreferences}
           onEngineChange={(next) => void changeEngine(next)}
           onIgnoreWhitespaceChange={setIgnoreTrimWhitespace}
           onBackupEnabledChange={setBackupEnabled}

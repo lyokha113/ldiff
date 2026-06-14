@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DiffView } from "@/components/DiffView";
+import { DEFAULT_UI_PREFERENCES } from "@/lib/preferences";
 import type { ComparePair } from "@/lib/types";
 
 vi.mock("@monaco-editor/react", () => ({
@@ -18,6 +19,7 @@ const classPair: ComparePair = {
 function setup(overrides = {}) {
   const props = {
     mode: "compare" as const, selected: classPair, preview: {},
+    preferences: DEFAULT_UI_PREFERENCES,
     ignoreTrimWhitespace: true,
     onCopy: vi.fn(),
     onEditorMount: vi.fn(), onDiffMount: vi.fn(),

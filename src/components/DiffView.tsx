@@ -2,6 +2,7 @@ import Editor, { DiffEditor, type DiffOnMount, type OnMount } from "@monaco-edit
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import type { UiPreferences } from "@/lib/preferences";
 import type { ComparePair, EntryPreview, Mode, Side } from "@/lib/types";
 
 export function pairHasClass(pair?: ComparePair) {
@@ -12,6 +13,7 @@ interface DiffViewProps {
   mode: Mode;
   selected?: ComparePair;
   preview: Partial<Record<Side, EntryPreview>>;
+  preferences: UiPreferences;
   ignoreTrimWhitespace: boolean;
   onCopy: (from: Side, to: Side) => void;
   onEditorMount: OnMount;
@@ -28,11 +30,21 @@ interface DiffViewProps {
 }
 
 export function DiffView({
-  mode, selected, preview, ignoreTrimWhitespace,
+  mode, selected, preview, preferences, ignoreTrimWhitespace,
   onCopy, onEditorMount, onDiffMount,
   editable, editValue, onEditChange, onEditBlur,
   fileMerge, hunkMerge, onDiffEditEither, onTakeAll, onMoveHunk,
 }: DiffViewProps) {
+  const monacoTheme = preferences.appearance.colorMode === "light" ? "light" : "vs-dark";
+  const editorOptions = {
+    fontFamily: "var(--font-mono)",
+    fontSize: preferences.typography.editorScale,
+    minimap: { enabled: preferences.editor.minimap === "on" },
+    wordWrap: preferences.editor.wordWrap,
+    lineNumbers: preferences.editor.lineNumbers,
+    automaticLayout: true,
+  } as const;
+
   return (
     <div className="editor-panel">
       <div className="copy-actions">
@@ -109,15 +121,14 @@ export function DiffView({
             language={preview.left?.language ?? preview.right?.language ?? "plaintext"}
             original={preview.left?.content ?? ""}
             modified={preview.right?.content ?? ""}
-            theme="vs-dark"
+            theme={monacoTheme}
             options={{
+              ...editorOptions,
               readOnly: !hunkMerge,
               originalEditable: hunkMerge,
               renderMarginRevertIcon: hunkMerge,
-              minimap: { enabled: false },
               renderSideBySide: true,
               useInlineViewWhenSpaceIsLimited: false,
-              automaticLayout: true,
               ignoreTrimWhitespace,
             }}
             onMount={(editor, monaco) => {
@@ -136,8 +147,8 @@ export function DiffView({
             height="100%"
             language={preview.left?.language ?? "plaintext"}
             value={editable ? editValue : (preview.left?.content ?? "")}
-            theme="vs-dark"
-            options={{ readOnly: !editable, minimap: { enabled: false }, automaticLayout: true }}
+            theme={monacoTheme}
+            options={{ ...editorOptions, readOnly: !editable }}
             onChange={(value) => editable && onEditChange(value)}
             onMount={(editor, monaco) => {
               onEditorMount(editor, monaco);
