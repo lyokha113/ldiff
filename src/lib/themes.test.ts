@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_THEME_ID,
   getAccent,
+  getDefaultThemeForMode,
   getTheme,
   listAccents,
   listThemesByMode,
@@ -70,6 +71,11 @@ describe("theme registry", () => {
   it("uses LDiff Graphite as the default dark theme", () => {
     expect(DEFAULT_THEME_ID).toBe("ldiff-graphite");
     expect(getTheme(DEFAULT_THEME_ID).label).toBe("LDiff Graphite");
+  });
+
+  it("uses the first registered theme as the default for each color mode", () => {
+    expect(getDefaultThemeForMode("light").id).toBe("github-light");
+    expect(getDefaultThemeForMode("dark").id).toBe(DEFAULT_THEME_ID);
   });
 
   it("falls back to default theme for unknown ids", () => {

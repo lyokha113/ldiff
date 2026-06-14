@@ -298,6 +298,10 @@ export function listThemesByMode(mode: ColorMode): ThemeDefinition[] {
   return THEMES.filter((theme) => theme.mode === mode);
 }
 
+export function getDefaultThemeForMode(mode: ColorMode): ThemeDefinition {
+  return listThemesByMode(mode)[0] ?? getTheme(DEFAULT_THEME_ID);
+}
+
 export function getTheme(id: string): ThemeDefinition {
   return (
     THEMES.find((theme) => theme.id === id) ??
