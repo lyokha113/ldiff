@@ -232,6 +232,17 @@ main.app-shell {
 .chip-sep { opacity: 0.6; flex: 0 0 auto; justify-self: center; }
 .search-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.75rem; }
 .search-bar .search-input { flex: 1 1 auto; }
+.search-context-label {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-2);
+  padding: 0 8px;
+  border-left: 2px solid var(--brass);
+}
+.search-inline-check {
+  flex: 0 0 auto;
+}
 
 .config-drawer { flex: 0 0 auto; overflow-y: auto; border-left: 1px solid var(--border, #2c3a4f); transition: width 0.15s ease; }
 .config-drawer.closed { width: 0; border-left: none; overflow: hidden; }

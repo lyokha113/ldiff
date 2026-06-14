@@ -46,6 +46,7 @@ import { SourceChips } from "@/components/SourceChips";
 import { SearchBar } from "@/components/SearchBar";
 import { DiffView, pairHasClass } from "@/components/DiffView";
 import { type DiffTab, evictLru, pickNeighbor, upsertTab } from "@/lib/tabs";
+import { searchContextForActiveTab } from "@/lib/search";
 import { moveHunk, type Hunk } from "@/lib/textMerge";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { FileTree } from "@/components/FileTree";
@@ -136,6 +137,7 @@ export function App() {
   const [engine, setEngine] = useState<Engine>(DEFAULT_ENGINE);
   const [query, setQuery] = useState("");
   const [searchScope, setSearchScope] = useState<SearchScope>("both");
+  const [includeSourceSearch, setIncludeSourceSearch] = useState(false);
   const [searchPaths, setSearchPaths] = useState<Set<string>>();
   const [searchResults, setSearchResults] = useState<LegacySearchResult[]>([]);
   const [selectedSearchResult, setSelectedSearchResult] = useState<LegacySearchResult>();
@@ -918,6 +920,7 @@ export function App() {
   const baseName = (p?: string) => (p ? p.split("/").pop() || undefined : undefined);
   const leftLabel = baseName(archives.left?.path ?? paths.left) ?? "Left";
   const rightLabel = baseName(archives.right?.path ?? paths.right) ?? "Right";
+  const searchContext = searchContextForActiveTab(activeTab);
 
   return (
     <TooltipProvider>
@@ -951,11 +954,21 @@ export function App() {
 
       <SearchBar
         open={searchOpen}
+        context={searchContext}
+        mode={mode}
         query={query}
         treeFilter={treeFilter}
+        searchScope={searchScope}
+        includeSource={includeSourceSearch}
+        searching={searching}
         onQueryChange={setQuery}
         onSearch={runSearch}
+        onSearchAllFiles={runSearch}
+        onCancel={cancelDeepSearch}
+        onClear={clearSearch}
         onFilterChange={setTreeFilter}
+        onScopeChange={setSearchScope}
+        onIncludeSourceChange={setIncludeSourceSearch}
       />
       {dropHint && <p className="platform-hint">{dropHint}</p>}
       <div className="work-area">
