@@ -125,9 +125,7 @@ impl AppState {
         }
         let other = side.opposite();
         if !self.plan(other).is_empty() {
-            return Err(
-                "save or clear unsaved changes before editing the other side".to_owned(),
-            );
+            return Err("save or clear unsaved changes before editing the other side".to_owned());
         }
         Ok(())
     }
@@ -165,9 +163,7 @@ impl AppState {
 
     fn stage_write(&mut self, side: Side, entry_path: &str, content: &str) -> Result<(), String> {
         self.ensure_can_stage(side)?;
-        let archive = archive(self, side)
-            .ok_or("archive is not loaded")?
-            .clone();
+        let archive = archive(self, side).ok_or("archive is not loaded")?.clone();
         let entry = archive
             .entry(entry_path)
             .ok_or("entry is not indexed")?
@@ -1062,11 +1058,9 @@ mod tests {
 
     #[test]
     fn search_hit_serializes_camel_case_and_omits_none() {
-        let constant_pool_hit = SearchHit::new(
-            "pkg/A.class".to_owned(),
-            SearchHitKind::ConstantPool,
-        )
-        .with_preview("Needle".to_owned());
+        let constant_pool_hit =
+            SearchHit::new("pkg/A.class".to_owned(), SearchHitKind::ConstantPool)
+                .with_preview("Needle".to_owned());
         let constant_pool_json = serde_json::to_value(&constant_pool_hit).unwrap();
         assert_eq!(constant_pool_json["entryPath"], "pkg/A.class");
         assert_eq!(constant_pool_json["kind"], "constantPool");
@@ -1539,15 +1533,23 @@ mod tests {
         let left = dir.path().join("left.jar");
         create_zip(&left, &[("config.xml", b"<old/>")]);
         let mut state = AppState::default();
-        state.load_archive(left.to_str().unwrap(), Side::Left).unwrap();
+        state
+            .load_archive(left.to_str().unwrap(), Side::Left)
+            .unwrap();
         let right = dir.path().join("right.jar");
         create_zip(&right, &[("config.xml", b"<r/>")]);
-        state.load_archive(right.to_str().unwrap(), Side::Right).unwrap();
+        state
+            .load_archive(right.to_str().unwrap(), Side::Right)
+            .unwrap();
 
-        state.stage_write(Side::Left, "config.xml", "<new/>").unwrap();
+        state
+            .stage_write(Side::Left, "config.xml", "<new/>")
+            .unwrap();
         assert!(!state.plan(Side::Left).is_empty());
 
-        let err = state.stage_write(Side::Right, "config.xml", "<x/>").unwrap_err();
+        let err = state
+            .stage_write(Side::Right, "config.xml", "<x/>")
+            .unwrap_err();
         assert!(err.contains("other side"));
     }
 
@@ -1592,8 +1594,12 @@ mod tests {
 
         // Edit both sides (mirrors stageFileSide on each pane). A File source
         // indexes its single entry by basename, so both sides use "config.json".
-        state.stage_write(Side::Left, "config.json", "{\"v\":9}\n").unwrap();
-        state.stage_write(Side::Right, "config.json", "{\"v\":9}\n").unwrap();
+        state
+            .stage_write(Side::Left, "config.json", "{\"v\":9}\n")
+            .unwrap();
+        state
+            .stage_write(Side::Right, "config.json", "{\"v\":9}\n")
+            .unwrap();
 
         // Save commits every dirty side (order: left then right) — must NOT error.
         state.commit_merge(Side::Left, true, false).unwrap();
@@ -1625,8 +1631,12 @@ mod tests {
             .unwrap();
 
         // Both sides stage the same basename.
-        state.stage_write(Side::Left, "config.json", "{\"v\":9}\n").unwrap();
-        state.stage_write(Side::Right, "config.json", "{\"v\":9}\n").unwrap();
+        state
+            .stage_write(Side::Left, "config.json", "{\"v\":9}\n")
+            .unwrap();
+        state
+            .stage_write(Side::Right, "config.json", "{\"v\":9}\n")
+            .unwrap();
         assert!(!state.plan(Side::Left).is_empty());
         assert!(!state.plan(Side::Right).is_empty());
 
@@ -1652,8 +1662,12 @@ mod tests {
         let left = dir.path().join("b.jar");
         create_zip(&left, &[("blob.bin", &[0u8, 1, 2, 3])]);
         let mut state = AppState::default();
-        state.load_archive(left.to_str().unwrap(), Side::Left).unwrap();
-        let err = state.stage_write(Side::Left, "blob.bin", "text").unwrap_err();
+        state
+            .load_archive(left.to_str().unwrap(), Side::Left)
+            .unwrap();
+        let err = state
+            .stage_write(Side::Left, "blob.bin", "text")
+            .unwrap_err();
         assert!(err.contains("editable"));
     }
 
@@ -1663,7 +1677,9 @@ mod tests {
         let left = dir.path().join("left.jar");
         create_zip(&left, &[("a.txt", b"old")]);
         let mut state = AppState::default();
-        state.load_archive(left.to_str().unwrap(), Side::Left).unwrap();
+        state
+            .load_archive(left.to_str().unwrap(), Side::Left)
+            .unwrap();
         state.stage_write(Side::Left, "a.txt", "new").unwrap();
 
         state.unstage("a.txt", None).unwrap();
