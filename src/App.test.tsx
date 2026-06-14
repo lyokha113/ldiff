@@ -272,6 +272,35 @@ describe("App file-merge wiring", () => {
     expect(await screen.findByText("Current diff matched line 2.")).toBeInTheDocument();
   });
 
+  it("runs source search when Include source is enabled", async () => {
+    const user = userEvent.setup();
+    await driveIntoFileCompare(user);
+
+    await user.click(screen.getByRole("tab", { name: /files/i }));
+    await user.type(screen.getByPlaceholderText(/Search paths, text, constants/), "config");
+    await user.click(screen.getByLabelText("Include source search"));
+    await user.click(screen.getByRole("button", { name: /search all/i }));
+
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("deep_search", {
+        side: "left",
+        query: "config",
+        searchId: expect.any(Number),
+      }),
+    );
+  });
+
+  it("labels search as Current diff on opened diff tabs", async () => {
+    const user = userEvent.setup();
+    await driveIntoFileCompare(user);
+
+    await user.click(screen.getByRole("tab", { name: /config.json/i }));
+
+    expect(screen.getByText("Current diff")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^find$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /search all files/i })).toBeInTheDocument();
+  });
+
   it("Move hunk into left copies into left and removes from right (copy+delete)", async () => {
     const user = userEvent.setup();
     await driveIntoFileCompare(user);

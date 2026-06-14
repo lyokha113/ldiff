@@ -805,10 +805,27 @@ export function App() {
           });
         }
       }
+      if (includeSourceSearch) {
+        for (const side of searchSides()) {
+          if (!archives[side]) continue;
+          for (const hit of await invoke<BackendSearchHit[]>("deep_search", { side, query, searchId })) {
+            if (searchStreamId.current !== searchId) return;
+            matches.add(hit.entryPath);
+            results.push({
+              side,
+              tier: "T3",
+              path: hit.entryPath,
+              kind: hit.kind,
+              line: hit.line,
+              preview: hit.preview,
+            });
+          }
+        }
+      }
       if (searchStreamId.current !== searchId) return;
       setSearchPaths(matches);
       setSearchResults(results);
-      setMessage(`Search matched ${matches.size} entries.`);
+      setMessage(`${includeSourceSearch ? "Search with source" : "Search"} matched ${matches.size} entries.`);
     } catch (error) {
       if (searchStreamId.current !== searchId) return;
       setSearchPaths(undefined);
