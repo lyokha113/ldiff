@@ -1,13 +1,39 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 
-Object.assign(window.HTMLElement.prototype, {
+const htmlElementPatches = {
   hasPointerCapture: vi.fn(() => false),
   scrollIntoView: vi.fn(),
   setPointerCapture: vi.fn(),
   releasePointerCapture: vi.fn(),
+};
+
+type HtmlElementPatch = keyof typeof htmlElementPatches;
+
+const originalHTMLElementDescriptors = new Map<HtmlElementPatch, PropertyDescriptor | undefined>();
+
+beforeAll(() => {
+  for (const method of Object.keys(htmlElementPatches) as HtmlElementPatch[]) {
+    originalHTMLElementDescriptors.set(method, Object.getOwnPropertyDescriptor(window.HTMLElement.prototype, method));
+    Object.defineProperty(window.HTMLElement.prototype, method, {
+      configurable: true,
+      writable: true,
+      value: htmlElementPatches[method],
+    });
+  }
+});
+
+afterAll(() => {
+  for (const method of Object.keys(htmlElementPatches) as HtmlElementPatch[]) {
+    const descriptor = originalHTMLElementDescriptors.get(method);
+    if (descriptor) {
+      Object.defineProperty(window.HTMLElement.prototype, method, descriptor);
+    } else {
+      delete window.HTMLElement.prototype[method];
+    }
+  }
 });
 
 function setup(overrides = {}) {
@@ -37,9 +63,11 @@ describe("WorkspaceTabs", () => {
   });
   it("renders the tree filter next to the Files tab", async () => {
     const props = setup();
+    const tablist = screen.getByRole("tablist", { name: "Workspace view" });
 
     expect(screen.getByRole("tab", { name: /Files/ })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Tree filter" })).toBeInTheDocument();
+    expect(within(tablist).queryByRole("combobox", { name: "Tree filter" })).not.toBeInTheDocument();
     expect(screen.getByText("Differences")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("combobox", { name: "Tree filter" }));
