@@ -20,6 +20,7 @@ const FILE_ENTRY = { path: "config.json", kind: "text" as const, uncompressedSiz
 // Source kind the open_archive mock reports. Default "file" (plain-file compare);
 // tests can flip to "archive" to exercise hunk-merge on entries inside a jar.
 let summarySourceKind: "file" | "archive" = "file";
+let deepSearchBlock: { promise: Promise<void> } | undefined;
 function fileSummary(side: "left" | "right") {
   return {
     path: side === "left" ? "/tmp/config.json" : "/tmp/other/config.json",
@@ -66,6 +67,7 @@ const invoke = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
         { entryPath: "config.json", kind: "text" as const, line: 2, preview: '"v": 2' },
       ];
     case "deep_search":
+      if (deepSearchBlock) await deepSearchBlock.promise;
       return [{ entryPath: "config.json", kind: "source" as const, line: 3, preview: "class Config" }];
     case "cancel_deep_search":
       return undefined;
@@ -201,6 +203,7 @@ describe("App file-merge wiring", () => {
     buffers.right = RIGHT_TEXT;
     lineChanges = [MODIFY_LINE_2];
     summarySourceKind = "file";
+    deepSearchBlock = undefined;
     localStorage.clear();
   });
 
@@ -277,7 +280,7 @@ describe("App file-merge wiring", () => {
     expect(await screen.findByText("Current diff matched line 2.")).toBeInTheDocument();
   });
 
-  it("runs source search when Include source is enabled", async () => {
+  it("runs source search when Include source is enabled on both compare sides", async () => {
     const user = userEvent.setup();
     await driveIntoFileCompare(user);
 
@@ -293,6 +296,45 @@ describe("App file-merge wiring", () => {
         searchId: expect.any(Number),
       }),
     );
+    expect(invoke).toHaveBeenCalledWith("deep_search", {
+      side: "right",
+      query: "config",
+      searchId: expect.any(Number),
+    });
+  });
+
+  it("clears stale results and cancels active decompiled source search", async () => {
+    const user = userEvent.setup();
+    await driveIntoFileCompare(user);
+
+    await user.click(screen.getByRole("tab", { name: /files/i }));
+    await user.type(screen.getByPlaceholderText(/Search paths, text, constants/), "config");
+    await user.click(screen.getByRole("button", { name: /search files/i }));
+    expect((await screen.findAllByText("Path")).length).toBeGreaterThan(0);
+
+    let unblockDeepSearch: () => void = () => undefined;
+    deepSearchBlock = {
+      promise: new Promise<void>((resolve) => { unblockDeepSearch = resolve; }),
+    };
+    await user.click(screen.getByLabelText("Include decompiled source search"));
+    await user.click(screen.getByRole("button", { name: /search files/i }));
+
+    await waitFor(() =>
+      expect(invoke).toHaveBeenCalledWith("deep_search", {
+        side: "left",
+        query: "config",
+        searchId: expect.any(Number),
+      }),
+    );
+    expect(screen.queryAllByText("Path")).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: /clear results/i }));
+
+    await waitFor(() =>
+      expect(invoke.mock.calls.some(([cmd]) => cmd === "cancel_deep_search")).toBe(true),
+    );
+    expect(screen.queryAllByText("Path")).toHaveLength(0);
+    unblockDeepSearch();
   });
 
   it("labels search as Current diff on opened diff tabs", async () => {

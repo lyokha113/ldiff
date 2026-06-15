@@ -10,17 +10,12 @@ interface SearchBarProps {
   context: SearchContext;
   mode: Mode;
   query: string;
-  treeFilter?: unknown;
-  searchScope?: unknown;
   includeSource: boolean;
   searching: boolean;
   onQueryChange: (value: string) => void;
   onSearch: () => void;
-  onSearchAllFiles?: unknown;
   onCancel: () => void;
   onClear: () => void;
-  onFilterChange?: unknown;
-  onScopeChange?: unknown;
   onIncludeSourceChange: (value: boolean) => void;
 }
 
