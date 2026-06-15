@@ -1,5 +1,8 @@
 import { FileDiff, ListTree, X } from "lucide-react";
-import type { PairStatus } from "@/lib/types";
+import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import type { PairStatus, TreeFilter } from "@/lib/types";
 import { statusPresentation } from "@/lib/status";
 
 function basename(path: string) {
@@ -17,12 +20,23 @@ export interface WorkspaceTabsProps {
   fileCount: number;
   activeId: "files" | string;
   tabs: WorkspaceTabDescriptor[];
+  treeFilter: TreeFilter;
   onSelectFiles: () => void;
   onSelectTab: (path: string) => void;
   onCloseTab: (path: string) => void;
+  onFilterChange: (filter: TreeFilter) => void;
 }
 
-export function WorkspaceTabs({ fileCount, activeId, tabs, onSelectFiles, onSelectTab, onCloseTab }: WorkspaceTabsProps) {
+export function WorkspaceTabs({
+  fileCount,
+  activeId,
+  tabs,
+  treeFilter,
+  onSelectFiles,
+  onSelectTab,
+  onCloseTab,
+  onFilterChange,
+}: WorkspaceTabsProps) {
   return (
     <div className="workspace-tabs" role="tablist" aria-label="Workspace view">
       <button
@@ -35,6 +49,18 @@ export function WorkspaceTabs({ fileCount, activeId, tabs, onSelectFiles, onSele
         <ListTree /> Files
         {fileCount > 0 && <span className="workspace-tab-count">{fileCount}</span>}
       </button>
+      <Select value={treeFilter} onValueChange={(v) => onFilterChange(v as TreeFilter)}>
+        <SelectTrigger className="workspace-tree-filter" aria-label="Tree filter">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectItem value="all">Show all</SelectItem>
+            <SelectItem value="diff">Differences</SelectItem>
+            <SelectItem value="same">Identical</SelectItem>
+          </SelectGroup>
+        </SelectContent>
+      </Select>
       <div className="workspace-tabs-scroll">
         {tabs.map((tab) => {
           const status = statusPresentation(tab.status);

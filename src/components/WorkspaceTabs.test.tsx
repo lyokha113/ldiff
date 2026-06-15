@@ -3,6 +3,13 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 
+Object.assign(window.HTMLElement.prototype, {
+  hasPointerCapture: vi.fn(() => false),
+  scrollIntoView: vi.fn(),
+  setPointerCapture: vi.fn(),
+  releasePointerCapture: vi.fn(),
+});
+
 function setup(overrides = {}) {
   const props = {
     fileCount: 3,
@@ -11,9 +18,11 @@ function setup(overrides = {}) {
       { path: "com/x/Foo.class", status: "different" as const },
       { path: "com/x/Bar.class", status: "onlyLeft" as const },
     ],
+    treeFilter: "diff" as const,
     onSelectFiles: vi.fn(),
     onSelectTab: vi.fn(),
     onCloseTab: vi.fn(),
+    onFilterChange: vi.fn(),
     ...overrides,
   };
   render(<WorkspaceTabs {...props} />);
@@ -25,6 +34,18 @@ describe("WorkspaceTabs", () => {
     setup();
     expect(screen.getByRole("tab", { name: /Files/ })).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
+  });
+  it("renders the tree filter next to the Files tab", async () => {
+    const props = setup();
+
+    expect(screen.getByRole("tab", { name: /Files/ })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Tree filter" })).toBeInTheDocument();
+    expect(screen.getByText("Differences")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("combobox", { name: "Tree filter" }));
+    await userEvent.click(screen.getByRole("option", { name: "Identical" }));
+
+    expect(props.onFilterChange).toHaveBeenCalledWith("same");
   });
   it("renders one tab per diff with the basename label", () => {
     setup();
