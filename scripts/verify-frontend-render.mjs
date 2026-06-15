@@ -218,7 +218,7 @@ try {
           return `${args.side.toUpperCase()} ASM BYTECODE for ${args.entryPath}`;
         }
         if (cmd === "search") {
-          return [{ entryPath: "right-only.txt", kind: "path" }];
+          return args.side === "right" ? [{ entryPath: "right-only.txt", kind: "path" }] : [];
         }
         if (cmd === "stage_copy") return undefined;
         if (cmd === "unstage") return undefined;
@@ -289,7 +289,7 @@ try {
   await archiveInput().press("Enter");
   await closePopover();
 
-  // Tree filter (in the always-visible SearchBar): Identical hides non-identical rows.
+  // Tree filter in the workspace tab strip: Identical hides non-identical rows.
   await mockedPage.getByRole("combobox", { name: "Tree filter" }).click();
   await mockedPage.getByRole("option", { name: "Identical" }).click();
   await mockedPage.locator(".tree-file", { hasText: "right-only.txt" }).waitFor({ state: "detached", timeout: 5_000 });
@@ -300,11 +300,9 @@ try {
   await mockedPage.getByRole("combobox", { name: "Tree filter" }).click();
   await mockedPage.getByRole("option", { name: "Differences" }).click();
 
-  await mockedPage.getByRole("combobox", { name: "Search scope" }).click();
-  await mockedPage.getByRole("option", { name: "Right" }).click();
   // Submit via the SearchBar Search button (MenuBar toggle is now "Toggle search").
   await mockedPage.getByPlaceholder("Search paths, text, constants").fill("right-only");
-  await mockedPage.getByRole("button", { name: "Search all", exact: true }).click();
+  await mockedPage.getByRole("button", { name: "Search files", exact: true }).click();
   await mockedPage.locator("text=Search matched 1 entries.").waitFor({ timeout: 5_000 });
   await mockedPage.locator(".search-result-row", { hasText: "right-only.txt" }).click();
   await mockedPage.locator("text=right text content for right-only.txt").waitFor({ timeout: 5_000 });
@@ -312,7 +310,7 @@ try {
   await showFilesTab();
   await mockedPage.getByRole("combobox", { name: "Tree filter" }).click();
   await mockedPage.getByRole("option", { name: "Differences" }).click();
-  await mockedPage.getByRole("button", { name: "Clear search" }).click();
+  await mockedPage.getByRole("button", { name: "Clear results" }).click();
 
   // Metadata-only detection: identical decompiled source -> differentMetadataOnly badge.
   await showFilesTab();

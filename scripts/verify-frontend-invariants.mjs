@@ -229,24 +229,17 @@ if (!app.includes('useEffect(() => {\n    if (!isTauriRuntime()) return;\n    le
   failures.push("src/App.tsx: streamed deep-search listener effect must be guarded for browser preview");
 }
 
-const deepSearchBody = app.match(/async function runDeepSearch\(\) {([\s\S]*?)\n  async function cancelDeepSearch/)?.[1] ?? "";
-if (
-  !deepSearchBody.includes("const searchId = searchStreamId.current + 1;") ||
-  !deepSearchBody.includes("searchStreamId.current = searchId;") ||
-  !deepSearchBody.includes("deep_search\", { side, query, searchId }") ||
-  !deepSearchBody.includes("if (searchStreamId.current !== searchId) return;")
-) {
-  failures.push("src/App.tsx: deep search requests and completions must be guarded by search id");
-}
-
-const runSearchBody = app.match(/async function runSearch\(\) {([\s\S]*?)\n  async function runDeepSearch/)?.[1] ?? "";
+const runSearchBody = app.match(/async function runSearch\(\) {([\s\S]*?)\n  async function cancelDeepSearch/)?.[1] ?? "";
 if (
   !runSearchBody.includes("const searchId = searchStreamId.current + 1;") ||
   !runSearchBody.includes("searchStreamId.current = searchId;") ||
+  !runSearchBody.includes("cancelableSearchActiveRef.current = sourceTierEnabled;") ||
+  !runSearchBody.includes('invoke<BackendSearchHit[]>("search", { side, query, options })') ||
+  !runSearchBody.includes('invoke<BackendSearchHit[]>("deep_search", { side, query, searchId })') ||
   !runSearchBody.includes("setSearching(false);") ||
   !runSearchBody.includes("if (searchStreamId.current !== searchId) return;")
 ) {
-  failures.push("src/App.tsx: T2 search must ignore stale completions and clear busy state");
+  failures.push("src/App.tsx: files search must guard search/deep-search completions and clear busy state");
 }
 
 const cancelSearchBody = app.match(/async function cancelDeepSearch\(\) {([\s\S]*?)\n  function searchSides/)?.[1] ?? "";
@@ -258,10 +251,12 @@ if (
   failures.push("src/App.tsx: cancel deep search must invalidate events and clear busy state");
 }
 
-const clearSearchBody = app.match(/function clearSearch\(\) {([\s\S]*?)\n  function inspectSearchResult/)?.[1] ?? "";
+const clearSearchBody = app.match(/async function clearSearchResults\(\) {([\s\S]*?)\n  function clearFind/)?.[1] ?? "";
 if (
   !clearSearchBody.includes("searchStreamId.current += 1;") ||
-  !clearSearchBody.includes("setSearching(false);")
+  !clearSearchBody.includes("cancelableSearchActiveRef.current = false;") ||
+  !clearSearchBody.includes("setSearching(false);") ||
+  !clearSearchBody.includes('if (shouldCancelBackendSearch) await invoke("cancel_deep_search");')
 ) {
   failures.push("src/App.tsx: clear search must invalidate events and clear busy state");
 }
@@ -306,17 +301,21 @@ if (
   failures.push("src/App.tsx: search-result line highlighting must target the selected editor side");
 }
 
-if (!frontend.includes('disabled={mode === "single"}')) {
-  failures.push("frontend: search scope selector must be disabled in Single mode");
+if (
+  frontend.includes(["Search", "scope"].join(" ")) ||
+  frontend.includes(["onScope", "Change"].join("")) ||
+  frontend.includes(["search", "Scope"].join(""))
+) {
+  failures.push("frontend: removed search scope selector/state must stay absent");
 }
 
 const copyActionGuards = frontend.match(/mode === "single"/g)?.length ?? 0;
 if (copyActionGuards < 5) {
-  failures.push("frontend: Single mode must disable search scope and all merge copy actions");
+  failures.push("frontend: Single mode must disable all merge copy actions");
 }
 
-if (!frontend.includes('disabled={mode === "single"}')) {
-  failures.push('frontend: Save staged control must be disabled in Single mode');
+if (!frontend.includes("disabled={!stagedTarget}")) {
+  failures.push('frontend: Save staged control must be disabled until there is a staged target');
 }
 if (!/aria-label=\{`Save to archive/.test(frontend) || !/onSave\(stagedTarget\)/.test(frontend)) {
   failures.push('frontend: Save-to-archive control must carry an aria-label and trigger save for the staged target');
