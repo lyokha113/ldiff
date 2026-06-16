@@ -68,6 +68,12 @@ describe("shortcuts", () => {
     expect(shortcutMatches(event({ key: "Tab" }), parseShortcut("Tab"), "linux")).toBe(true);
   });
 
+  it("throws for malformed shortcut definitions", () => {
+    expect(() => parseShortcut("Cmd+F")).toThrow();
+    expect(() => parseShortcut("Ctrl+F")).toThrow();
+    expect(() => parseShortcut("CmdOrCtrl+F+G")).toThrow();
+  });
+
   it("resolves the first matching action", () => {
     const action = matchShortcut(
       event({ key: "f", metaKey: true }),

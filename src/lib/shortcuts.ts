@@ -41,6 +41,8 @@ const SHIFTED_KEY_ALIASES: Record<string, string> = {
   "}": "]",
 };
 
+const UNSUPPORTED_MODIFIER_TOKENS = new Set(["cmd", "command", "meta", "ctrl", "control"]);
+
 export function parseShortcut(shortcut: string): ParsedShortcut {
   const parsed: ParsedShortcut = {
     key: "",
@@ -53,15 +55,34 @@ export function parseShortcut(shortcut: string): ParsedShortcut {
     const part = rawPart.trim();
     const modifier = part.toLowerCase();
 
+    if (!part) {
+      throw new Error(`Shortcut "${shortcut}" contains an empty token`);
+    }
+
     if (modifier === "cmdorctrl") {
       parsed.cmdOrCtrl = true;
-    } else if (modifier === "shift") {
-      parsed.shift = true;
-    } else if (modifier === "alt" || modifier === "option") {
-      parsed.alt = true;
-    } else if (part.length > 0) {
-      parsed.key = normalizeKey(part);
+      continue;
     }
+
+    if (modifier === "shift") {
+      parsed.shift = true;
+      continue;
+    }
+
+    if (modifier === "alt" || modifier === "option") {
+      parsed.alt = true;
+      continue;
+    }
+
+    if (UNSUPPORTED_MODIFIER_TOKENS.has(modifier)) {
+      throw new Error(`Shortcut "${shortcut}" uses unsupported modifier "${part}"`);
+    }
+
+    if (parsed.key) {
+      throw new Error(`Shortcut "${shortcut}" must include exactly one key`);
+    }
+
+    parsed.key = normalizeKey(part);
   }
 
   if (!parsed.key) {
