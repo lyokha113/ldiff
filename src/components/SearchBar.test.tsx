@@ -7,19 +7,13 @@ function setup(overrides = {}) {
   const props = {
     open: true,
     context: "files" as const,
-    mode: "compare" as const,
     query: "",
-    treeFilter: "diff" as const,
-    searchScope: "both" as const,
     includeSource: false,
     searching: false,
     onQueryChange: vi.fn(),
     onSearch: vi.fn(),
-    onSearchAllFiles: vi.fn(),
     onCancel: vi.fn(),
     onClear: vi.fn(),
-    onFilterChange: vi.fn(),
-    onScopeChange: vi.fn(),
     onIncludeSourceChange: vi.fn(),
     ...overrides,
   };
@@ -33,15 +27,17 @@ describe("SearchBar", () => {
 
     expect(screen.getByText("Files index")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search paths, text, constants")).toBeInTheDocument();
-    expect(screen.getByText("Source")).toBeInTheDocument();
-    expect(screen.getByLabelText("Search scope")).toBeInTheDocument();
-    expect(screen.getByLabelText("Tree filter")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /search all/i })).toBeInTheDocument();
-    expect(screen.getByLabelText("Include source search")).not.toBeChecked();
+    expect(screen.getByText("Decompiled source")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Search scope")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Tree filter")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /search files/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^cancel$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /clear results/i })).toBeInTheDocument();
+    expect(screen.getByLabelText("Include decompiled source search")).not.toBeChecked();
 
-    await userEvent.click(screen.getByLabelText("Include source search"));
+    await userEvent.click(screen.getByLabelText("Include decompiled source search"));
     expect(props.onIncludeSourceChange).toHaveBeenCalledWith(true);
-    await userEvent.click(screen.getByRole("button", { name: /search all/i }));
+    await userEvent.click(screen.getByRole("button", { name: /search files/i }));
     expect(props.onSearch).toHaveBeenCalled();
   });
 
@@ -51,10 +47,12 @@ describe("SearchBar", () => {
     expect(screen.getByText("Current diff")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Find in current diff")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^find$/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /search all files/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /clear find/i })).toBeInTheDocument();
+    expect(screen.queryByText("Decompiled source")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /search all files/i })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /search all files/i }));
-    expect(props.onSearchAllFiles).toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: /^find$/i }));
+    expect(props.onSearch).toHaveBeenCalled();
   });
 
   it("renders nothing when closed", () => {
@@ -62,13 +60,18 @@ describe("SearchBar", () => {
     expect(screen.queryByText("Files index")).not.toBeInTheDocument();
   });
 
-  it("fires clear and cancel actions", async () => {
+  it("renders cancel only for an active Files-index source search", async () => {
     const props = setup({ searching: true });
-    expect(screen.getByRole("button", { name: /search all/i })).toBeDisabled();
-    await userEvent.click(screen.getByRole("button", { name: /cancel search/i }));
-    await userEvent.click(screen.getByRole("button", { name: /clear search/i }));
+    expect(screen.getByRole("button", { name: /search files/i })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+    await userEvent.click(screen.getByRole("button", { name: /clear results/i }));
     expect(props.onCancel).toHaveBeenCalled();
     expect(props.onClear).toHaveBeenCalled();
+  });
+
+  it("does not render cancel for Current diff while searching", () => {
+    setup({ context: "diff", searching: true });
+    expect(screen.queryByRole("button", { name: /^cancel$/i })).not.toBeInTheDocument();
   });
 
   it("runs the primary search action from Enter", async () => {

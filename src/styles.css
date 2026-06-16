@@ -161,7 +161,15 @@ main.app-shell {
 
 /* ---------- workspace tabs (Files | Diff) ---------- */
 .workspace-tabs { flex: 0 0 auto; display: flex; gap: 4px; min-width: 0; max-width: 100%; }
+.workspace-tabs-files { display: flex; flex: 0 0 auto; }
 .workspace-tab-files { flex: 0 0 auto; }
+.workspace-tree-filter {
+  flex: 0 0 auto;
+  width: 9.5rem;
+  height: 32px;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
 .workspace-tabs-scroll {
   display: flex;
   gap: 4px;
@@ -877,6 +885,8 @@ h1 {
 
 @media (max-width: 480px) {
   .search-bar { align-items: stretch; flex-wrap: wrap; }
+  .workspace-tabs { flex-wrap: wrap; }
+  .workspace-tree-filter { width: min(100%, 9.5rem); }
   .search-context-label { flex-basis: 100%; }
   .search-bar .search-input { flex: 1 1 100%; }
   .search-bar [data-slot="select-trigger"],

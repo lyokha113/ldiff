@@ -18,7 +18,6 @@ import {
   type PairStatus,
   type PlatformHints,
   type SearchResult,
-  type SearchScope,
   type Side,
   type StagedEntry,
   type TreeFilter,
@@ -114,7 +113,6 @@ export function App() {
   const [engine, setEngine] = useState<Engine>(DEFAULT_ENGINE);
   const [preferences, setPreferences] = useState(loadUiPreferences);
   const [query, setQuery] = useState("");
-  const [searchScope, setSearchScope] = useState<SearchScope>("both");
   const [includeSourceSearch, setIncludeSourceSearch] = useState(preferences.search.includeSourceByDefault);
   const [searchPaths, setSearchPaths] = useState<Set<string>>();
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -143,6 +141,7 @@ export function App() {
   const openTabsCountRef = useRef(0);
   const previewRequestId = useRef(0);
   const searchStreamId = useRef(0);
+  const cancelableSearchActiveRef = useRef(false);
   const editorRef = useRef<CodeEditor | undefined>(undefined);
   const diffEditorRef = useRef<DiffCodeEditor | undefined>(undefined);
   const monacoRef = useRef<MonacoApi | undefined>(undefined);
@@ -784,8 +783,13 @@ export function App() {
 
   async function runSearch() {
     const searchId = searchStreamId.current + 1;
+    const sourceTierEnabled = includeSourceSearch;
     searchStreamId.current = searchId;
-    setSearching(false);
+    cancelableSearchActiveRef.current = sourceTierEnabled;
+    setSearching(sourceTierEnabled);
+    setSearchPaths(undefined);
+    setSearchResults([]);
+    setSelectedSearchResult(undefined);
     try {
       const matches = new Set<string>();
       const results: SearchResult[] = [];
@@ -805,76 +809,56 @@ export function App() {
           });
         }
       }
-      if (includeSourceSearch) {
-        for (const side of searchSides()) {
-          if (!archives[side]) continue;
-          for (const hit of await invoke<BackendSearchHit[]>("deep_search", { side, query, searchId })) {
-            if (searchStreamId.current !== searchId) return;
-            matches.add(hit.entryPath);
-            results.push({
-              side,
-              tier: "T3",
-              path: hit.entryPath,
-              kind: hit.kind,
-              line: hit.line,
-              preview: hit.preview,
-            });
+      if (sourceTierEnabled) {
+        setSearchPaths(new Set(matches));
+        setSearchResults([...results]);
+        try {
+          for (const side of searchSides()) {
+            if (!archives[side]) continue;
+            for (const hit of await invoke<BackendSearchHit[]>("deep_search", { side, query, searchId })) {
+              if (searchStreamId.current !== searchId) return;
+              matches.add(hit.entryPath);
+              results.push({
+                side,
+                tier: "T3",
+                path: hit.entryPath,
+                kind: hit.kind,
+                line: hit.line,
+                preview: hit.preview,
+              });
+            }
           }
+        } catch (error) {
+          if (searchStreamId.current !== searchId) return;
+          setSearchPaths(new Set(matches));
+          setSearchResults([...results]);
+          setMessage(`Source search failed: ${String(error)}`);
+          return;
         }
       }
       if (searchStreamId.current !== searchId) return;
       setSearchPaths(matches);
       setSearchResults(results);
-      setMessage(`${includeSourceSearch ? "Search with source" : "Search"} matched ${matches.size} entries.`);
+      setMessage(`${sourceTierEnabled ? "Search with decompiled source" : "Search"} matched ${matches.size} entries.`);
     } catch (error) {
       if (searchStreamId.current !== searchId) return;
       setSearchPaths(undefined);
       setSearchResults([]);
       setMessage(String(error));
-    }
-  }
-
-  async function runDeepSearch() {
-    const searchId = searchStreamId.current + 1;
-    searchStreamId.current = searchId;
-    setSearching(true);
-    setSearchPaths(new Set());
-    setSearchResults([]);
-    try {
-      const matches = new Set<string>();
-      const results: SearchResult[] = [];
-      for (const side of searchSides()) {
-        if (!archives[side]) continue;
-        for (const hit of await invoke<BackendSearchHit[]>("deep_search", { side, query, searchId })) {
-          if (searchStreamId.current !== searchId) return;
-          matches.add(hit.entryPath);
-          results.push({
-            side,
-            tier: "T3",
-            path: hit.entryPath,
-            kind: hit.kind,
-            line: hit.line,
-            preview: hit.preview,
-          });
-        }
-      }
-      if (searchStreamId.current !== searchId) return;
-      setSearchPaths(matches);
-      setSearchResults(results);
-      setMessage(`Deep search matched ${matches.size} entries.`);
-    } catch (error) {
-      if (searchStreamId.current !== searchId) return;
-      setMessage(String(error));
     } finally {
-      if (searchStreamId.current === searchId) setSearching(false);
+      if (searchStreamId.current === searchId) {
+        cancelableSearchActiveRef.current = false;
+        setSearching(false);
+      }
     }
   }
 
   async function cancelDeepSearch() {
     searchStreamId.current += 1;
+    cancelableSearchActiveRef.current = false;
     setSearching(false);
     await invoke("cancel_deep_search");
-    setMessage("Cancelling deep search...");
+    setMessage("Cancelling decompiled source search...");
   }
 
   function findInCurrentDiff() {
@@ -903,15 +887,23 @@ export function App() {
 
   function searchSides(): Side[] {
     if (mode === "single") return ["left"];
-    return searchScope === "both" ? ["left", "right"] : [searchScope];
+    return ["left", "right"];
   }
 
-  function clearSearch() {
+  async function clearSearchResults() {
+    const shouldCancelBackendSearch = cancelableSearchActiveRef.current;
     searchStreamId.current += 1;
+    cancelableSearchActiveRef.current = false;
     setSearching(false);
     setSearchPaths(undefined);
     setSearchResults([]);
     setSelectedSearchResult(undefined);
+    if (shouldCancelBackendSearch) await invoke("cancel_deep_search");
+  }
+
+  function clearFind() {
+    void clearSearchResults();
+    setQuery("");
   }
 
   function inspectSearchResult(result: SearchResult) {
@@ -998,19 +990,13 @@ export function App() {
       <SearchBar
         open={searchOpen}
         context={searchContext}
-        mode={mode}
         query={query}
-        treeFilter={treeFilter}
-        searchScope={searchScope}
         includeSource={includeSourceSearch}
         searching={searching}
         onQueryChange={setQuery}
         onSearch={searchContext === "files" ? runSearch : findInCurrentDiff}
-        onSearchAllFiles={runSearch}
         onCancel={cancelDeepSearch}
-        onClear={clearSearch}
-        onFilterChange={setTreeFilter}
-        onScopeChange={setSearchScope}
+        onClear={() => void (searchContext === "files" ? clearSearchResults() : clearFind())}
         onIncludeSourceChange={setIncludeSourceSearch}
       />
       {dropHint && <p className="platform-hint">{dropHint}</p>}
@@ -1019,10 +1005,13 @@ export function App() {
           <WorkspaceTabs
             fileCount={visiblePairs.length}
             activeId={activeTab}
+            mode={mode}
             tabs={openTabs.map((t) => ({ path: t.path, status: t.pair.status }))}
+            treeFilter={treeFilter}
             onSelectFiles={() => setActiveTab("files")}
             onSelectTab={(path) => focusTab(path)}
             onCloseTab={(path) => closeTab(path)}
+            onFilterChange={setTreeFilter}
           />
           <div className="workspace-tabpanels">
             <div className="workspace-tabpanel" role="tabpanel" hidden={activeTab !== "files"}>
