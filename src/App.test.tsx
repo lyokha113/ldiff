@@ -488,7 +488,21 @@ describe("App file-merge wiring", () => {
     });
 
     expect(await screen.findByText("Finish editing or leave the editor before running this shortcut.")).toBeInTheDocument();
-    expect(allowed).toBe(false);
+    expect(allowed).toBe(true);
+  });
+
+  it("navigates from Files to the open diff tab with keyboard shortcuts", async () => {
+    const user = userEvent.setup();
+    await driveIntoFileCompare(user);
+
+    await user.click(screen.getByRole("tab", { name: /files/i }));
+    expect(screen.getByText("Files index")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Tab", ...cmdOrCtrl() });
+    expect(await screen.findByText("Current diff")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "1", ...cmdOrCtrl() });
+    expect(await screen.findByText("Files index")).toBeInTheDocument();
   });
 
   it("blocks hunk shortcuts while the Files tab is active", async () => {

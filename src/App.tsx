@@ -61,6 +61,7 @@ import {
 } from "@/lib/history";
 import {
   dispatchAppAction,
+  getActionState,
   isAppActionId,
   shortcutBindings,
   type AppActionContext,
@@ -1061,8 +1062,18 @@ export function App() {
       const actionId = matchShortcut(event, shortcutBindings());
       if (!actionId) return;
 
-      event.preventDefault();
-      void dispatchRegisteredAction(actionId, event.target);
+      if (viewRef.current === "splash") return;
+      const context = actionContextRef.current;
+      const handlers = actionHandlersRef.current;
+      if (!context || !handlers) return;
+      const focusedContext = {
+        ...context,
+        focusKind: classifyFocusTarget(event.target),
+      };
+      if (getActionState(actionId, focusedContext).enabled) {
+        event.preventDefault();
+      }
+      void dispatchAppAction(actionId, focusedContext, handlers);
     };
 
     window.addEventListener("keydown", handleKeyDown);
