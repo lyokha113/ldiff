@@ -1100,17 +1100,22 @@ fn custom_submenu<R: Runtime, M: Manager<R>>(
     submenu.build()
 }
 
-fn predefined_close_window_groups(target_os: &str) -> &'static [&'static str] {
-    if target_os == "macos" {
-        &[]
-    } else {
-        &["Window"]
+struct CloseWindowPlacement {
+    file: bool,
+    window: bool,
+}
+
+fn close_window_placement(target_os: &str) -> CloseWindowPlacement {
+    CloseWindowPlacement {
+        file: false,
+        window: target_os != "macos",
     }
 }
 
 fn build_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<Menu<R>> {
     let handle = app.handle();
     let menu = Menu::new(handle)?;
+    let close_window = close_window_placement(std::env::consts::OS);
     let package = app.package_info();
     let about_metadata = AboutMetadata {
         name: Some(package.name.clone()),
@@ -1152,6 +1157,11 @@ fn build_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<Menu<R>> {
             .accelerator(*shortcut)
             .build(handle)?;
         file = file.item(&item);
+    }
+    if close_window.file {
+        file = file
+            .separator()
+            .item(&PredefinedMenuItem::close_window(handle, None)?);
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -1205,7 +1215,7 @@ fn build_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<Menu<R>> {
     let mut window = SubmenuBuilder::new(handle, "Window")
         .item(&PredefinedMenuItem::minimize(handle, None)?)
         .item(&PredefinedMenuItem::maximize(handle, None)?);
-    if predefined_close_window_groups(std::env::consts::OS).contains(&"Window") {
+    if close_window.window {
         window = window
             .separator()
             .item(&PredefinedMenuItem::close_window(handle, None)?);
@@ -1284,14 +1294,14 @@ mod tests {
     use tempfile::tempdir;
     use zip::{ZipWriter, write::SimpleFileOptions};
 
-    #[cfg(not(target_os = "macos"))]
-    use super::install_app_menu;
     use super::{
         AppActionPayload, AppState, MENU_ACTIONS, SearchHit, SearchHitKind, SearchOptions, Side,
-        SidecarClient, class_source_path, deep_search_hit, is_prefetch_sibling, language_for_path,
-        platform_hints_from, predefined_close_window_groups, read_entry_preview, search_archive,
-        validate_path,
+        SidecarClient, class_source_path, close_window_placement, deep_search_hit,
+        is_prefetch_sibling, language_for_path, platform_hints_from, read_entry_preview,
+        search_archive, validate_path,
     };
+    #[cfg(not(target_os = "macos"))]
+    use super::{build_app_menu, install_app_menu};
     use ldiff_core::{Archive, DecompileEngine};
     #[cfg(not(target_os = "macos"))]
     use tauri::Manager;
@@ -1331,17 +1341,43 @@ mod tests {
     }
 
     #[test]
-    fn predefined_close_window_has_one_non_macos_owner_and_no_macos_owner() {
-        let close_tab_accelerator = MENU_ACTIONS
-            .iter()
-            .find(|(_, action_id, _, _)| *action_id == "workspace.closeTab")
-            .map(|(_, _, _, accelerator)| *accelerator);
+    #[cfg(not(target_os = "macos"))]
+    fn constructed_non_macos_menu_owns_close_window_only_in_window() {
+        let app = tauri::test::mock_app();
+        let menu = build_app_menu(&app).unwrap();
 
-        assert_eq!(close_tab_accelerator, Some("CmdOrCtrl+W"));
-        assert!(predefined_close_window_groups("macos").is_empty());
-        assert_eq!(predefined_close_window_groups("windows"), ["Window"]);
-        assert_eq!(predefined_close_window_groups("linux"), ["Window"]);
-        assert_eq!(predefined_close_window_groups("freebsd"), ["Window"]);
+        assert_eq!(close_window_count(&menu, "File"), 0);
+        assert_eq!(close_window_count(&menu, "Window"), 1);
+    }
+
+    #[test]
+    fn macos_menu_policy_omits_predefined_close_window() {
+        let placement = close_window_placement("macos");
+
+        assert!(!placement.file);
+        assert!(!placement.window);
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn close_window_count<R: tauri::Runtime>(menu: &tauri::menu::Menu<R>, group: &str) -> usize {
+        let items = menu.items().expect("top-level menu items");
+        let submenu = items
+            .iter()
+            .filter_map(|item| item.as_submenu())
+            .find(|submenu| submenu.text().is_ok_and(|text| text == group))
+            .unwrap_or_else(|| panic!("missing {group} submenu"));
+
+        submenu
+            .items()
+            .expect("submenu items")
+            .into_iter()
+            .filter_map(|item| item.as_predefined_menuitem().cloned())
+            .filter(|item| {
+                item.text().is_ok_and(|text| {
+                    matches!(text.replace('&', "").as_str(), "Close" | "Close Window")
+                })
+            })
+            .count()
     }
 
     #[test]
