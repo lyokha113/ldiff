@@ -1100,6 +1100,10 @@ fn custom_submenu<'a, R: Runtime, M: Manager<R>>(
     submenu.build()
 }
 
+fn includes_predefined_close_window(target_os: &str) -> bool {
+    target_os != "macos"
+}
+
 fn build_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<Menu<R>> {
     let handle = app.handle();
     let menu = Menu::new(handle)?;
@@ -1145,9 +1149,11 @@ fn build_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<Menu<R>> {
             .build(handle)?;
         file = file.item(&item);
     }
-    file = file
-        .separator()
-        .item(&PredefinedMenuItem::close_window(handle, None)?);
+    if includes_predefined_close_window(std::env::consts::OS) {
+        file = file
+            .separator()
+            .item(&PredefinedMenuItem::close_window(handle, None)?);
+    }
     #[cfg(not(target_os = "macos"))]
     {
         file = file
@@ -1197,14 +1203,15 @@ fn build_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<Menu<R>> {
     menu.append(&custom_submenu(handle, "Workspace")?)?;
     menu.append(&custom_submenu(handle, "Merge")?)?;
 
-    menu.append(
-        &SubmenuBuilder::new(handle, "Window")
-            .item(&PredefinedMenuItem::minimize(handle, None)?)
-            .item(&PredefinedMenuItem::maximize(handle, None)?)
+    let mut window = SubmenuBuilder::new(handle, "Window")
+        .item(&PredefinedMenuItem::minimize(handle, None)?)
+        .item(&PredefinedMenuItem::maximize(handle, None)?);
+    if includes_predefined_close_window(std::env::consts::OS) {
+        window = window
             .separator()
-            .item(&PredefinedMenuItem::close_window(handle, None)?)
-            .build()?,
-    )?;
+            .item(&PredefinedMenuItem::close_window(handle, None)?);
+    }
+    menu.append(&window.build()?)?;
 
     let help = SubmenuBuilder::new(handle, "Help");
     #[cfg(not(target_os = "macos"))]
@@ -1282,8 +1289,9 @@ mod tests {
     use super::install_app_menu;
     use super::{
         AppActionPayload, AppState, MENU_ACTIONS, SearchHit, SearchHitKind, SearchOptions, Side,
-        SidecarClient, class_source_path, deep_search_hit, is_prefetch_sibling, language_for_path,
-        platform_hints_from, read_entry_preview, search_archive, validate_path,
+        SidecarClient, class_source_path, deep_search_hit, includes_predefined_close_window,
+        is_prefetch_sibling, language_for_path, platform_hints_from, read_entry_preview,
+        search_archive, validate_path,
     };
     use ldiff_core::{Archive, DecompileEngine};
     #[cfg(not(target_os = "macos"))]
@@ -1321,6 +1329,19 @@ mod tests {
                     panic!("invalid accelerator {accelerator} for {action_id}: {error}")
                 });
         }
+    }
+
+    #[test]
+    fn macos_cmd_w_is_exclusively_owned_by_close_tab() {
+        let close_tab_accelerator = MENU_ACTIONS
+            .iter()
+            .find(|(_, action_id, _, _)| *action_id == "workspace.closeTab")
+            .map(|(_, _, _, accelerator)| *accelerator);
+
+        assert_eq!(close_tab_accelerator, Some("CmdOrCtrl+W"));
+        assert!(!includes_predefined_close_window("macos"));
+        assert!(includes_predefined_close_window("windows"));
+        assert!(includes_predefined_close_window("linux"));
     }
 
     #[test]
