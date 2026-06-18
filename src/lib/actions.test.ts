@@ -56,6 +56,8 @@ describe("action registry", () => {
     expect(bindings).toHaveLength(ACTION_DEFINITIONS.length);
     expect(bindings.map((binding) => binding.actionId)).toEqual(ACTION_DEFINITIONS.map((definition) => definition.id));
     expect(bindings.find((binding) => binding.actionId === "search.toggle")?.shortcut).toBe("CmdOrCtrl+F");
+    expect(bindings.find((binding) => binding.actionId === "workspace.nextTab")?.shortcut).toBe("Ctrl+Tab");
+    expect(bindings.find((binding) => binding.actionId === "workspace.previousTab")?.shortcut).toBe("Ctrl+Shift+Tab");
   });
 
   it("keeps action ids and shortcuts unique", () => {

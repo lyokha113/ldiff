@@ -24,6 +24,17 @@ describe("shortcuts", () => {
     expect(parseShortcut("CmdOrCtrl+Shift+O")).toEqual({
       key: "o",
       cmdOrCtrl: true,
+      ctrl: false,
+      shift: true,
+      alt: false,
+    });
+  });
+
+  it("parses explicit Ctrl shortcuts", () => {
+    expect(parseShortcut("Control+Shift+Tab")).toEqual({
+      key: "tab",
+      cmdOrCtrl: false,
+      ctrl: true,
       shift: true,
       alt: false,
     });
@@ -39,6 +50,14 @@ describe("shortcuts", () => {
     const shortcut = parseShortcut("CmdOrCtrl+O");
     expect(shortcutMatches(event({ key: "o", ctrlKey: true }), shortcut, "linux")).toBe(true);
     expect(shortcutMatches(event({ key: "o", metaKey: true }), shortcut, "linux")).toBe(false);
+  });
+
+  it("matches explicit Ctrl without Meta on every platform", () => {
+    const shortcut = parseShortcut("Ctrl+Tab");
+    expect(shortcutMatches(event({ key: "Tab", ctrlKey: true }), shortcut, "darwin")).toBe(true);
+    expect(shortcutMatches(event({ key: "Tab", ctrlKey: true }), shortcut, "linux")).toBe(true);
+    expect(shortcutMatches(event({ key: "Tab", ctrlKey: true, metaKey: true }), shortcut, "darwin")).toBe(false);
+    expect(shortcutMatches(event({ key: "Tab", metaKey: true }), shortcut, "darwin")).toBe(false);
   });
 
   it("matches bracket merge shortcuts", () => {
@@ -70,7 +89,7 @@ describe("shortcuts", () => {
 
   it("throws for malformed shortcut definitions", () => {
     expect(() => parseShortcut("Cmd+F")).toThrow();
-    expect(() => parseShortcut("Ctrl+F")).toThrow();
+    expect(() => parseShortcut("CmdOrCtrl+Ctrl+F")).toThrow();
     expect(() => parseShortcut("CmdOrCtrl+F+G")).toThrow();
   });
 

@@ -17,6 +17,7 @@ export interface ShortcutBinding<ActionId extends string = string> {
 export interface ParsedShortcut {
   key: string;
   cmdOrCtrl: boolean;
+  ctrl: boolean;
   shift: boolean;
   alt: boolean;
 }
@@ -41,12 +42,13 @@ const SHIFTED_KEY_ALIASES: Record<string, string> = {
   "}": "]",
 };
 
-const UNSUPPORTED_MODIFIER_TOKENS = new Set(["cmd", "command", "meta", "ctrl", "control"]);
+const UNSUPPORTED_MODIFIER_TOKENS = new Set(["cmd", "command", "meta"]);
 
 export function parseShortcut(shortcut: string): ParsedShortcut {
   const parsed: ParsedShortcut = {
     key: "",
     cmdOrCtrl: false,
+    ctrl: false,
     shift: false,
     alt: false,
   };
@@ -61,6 +63,11 @@ export function parseShortcut(shortcut: string): ParsedShortcut {
 
     if (modifier === "cmdorctrl") {
       parsed.cmdOrCtrl = true;
+      continue;
+    }
+
+    if (modifier === "ctrl" || modifier === "control") {
+      parsed.ctrl = true;
       continue;
     }
 
@@ -89,6 +96,10 @@ export function parseShortcut(shortcut: string): ParsedShortcut {
     throw new Error(`Shortcut "${shortcut}" must include a key`);
   }
 
+  if (parsed.cmdOrCtrl && parsed.ctrl) {
+    throw new Error(`Shortcut "${shortcut}" cannot combine CmdOrCtrl with explicit Ctrl`);
+  }
+
   return parsed;
 }
 
@@ -101,8 +112,12 @@ export function shortcutMatches(event: KeyboardLikeEvent, shortcut: ParsedShortc
     return false;
   }
 
+  if (shortcut.ctrl) {
+    return event.ctrlKey && !event.metaKey;
+  }
+
   if (!shortcut.cmdOrCtrl) {
-    return !event.metaKey && !event.ctrlKey;
+    return !event.ctrlKey && !event.metaKey;
   }
 
   if (platform === "darwin") {

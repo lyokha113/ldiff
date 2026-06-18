@@ -59,6 +59,9 @@ DOM keydown shortcut
 Use desktop-standard defaults for app-level commands. Prefer `Cmd` on macOS and
 `Ctrl` on Windows/Linux through `CmdOrCtrl` metadata.
 
+Tab navigation is the exception: it uses explicit `Ctrl+Tab` and
+`Ctrl+Shift+Tab` on every platform to avoid macOS-reserved command shortcuts.
+
 Merge commands use bracket-based shortcuts to avoid common editor shortcuts and
 to express direction:
 
@@ -93,8 +96,8 @@ are typing or editing text.
 | Search | Run contextual search/find | `search.runContextual` | `CmdOrCtrl+Enter` |
 | View | Toggle Preferences | `view.togglePreferences` | `CmdOrCtrl+,` |
 | Workspace | Focus Files tab | `workspace.focusFiles` | `CmdOrCtrl+1` |
-| Workspace | Next tab | `workspace.nextTab` | `CmdOrCtrl+Tab` |
-| Workspace | Previous tab | `workspace.previousTab` | `CmdOrCtrl+Shift+Tab` |
+| Workspace | Next tab | `workspace.nextTab` | `Ctrl+Tab` |
+| Workspace | Previous tab | `workspace.previousTab` | `Ctrl+Shift+Tab` |
 | Workspace | Close active tab | `workspace.closeTab` | `CmdOrCtrl+W` |
 | Merge | Copy entry to left | `merge.copyToLeft` | `Alt+[` |
 | Merge | Copy entry to right | `merge.copyToRight` | `Alt+]` |

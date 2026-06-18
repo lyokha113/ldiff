@@ -498,7 +498,7 @@ describe("App file-merge wiring", () => {
     await user.click(screen.getByRole("tab", { name: /files/i }));
     expect(screen.getByText("Files index")).toBeInTheDocument();
 
-    fireEvent.keyDown(window, { key: "Tab", ...cmdOrCtrl() });
+    fireEvent.keyDown(window, { key: "Tab", ctrlKey: true });
     expect(await screen.findByText("Current diff")).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "1", ...cmdOrCtrl() });

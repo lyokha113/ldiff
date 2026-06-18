@@ -15,8 +15,8 @@ use ldiff_core::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tauri::{
-    Emitter, Manager, State, Window,
-    menu::{Menu, MenuItemBuilder, SubmenuBuilder},
+    Emitter, Manager, Runtime, State, Window,
+    menu::{AboutMetadata, Menu, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder},
 };
 
 mod sidecar_process;
@@ -51,7 +51,7 @@ const MENU_ACTIONS: &[(&str, &str, &str, &str)] = &[
     (
         "View",
         "view.togglePreferences",
-        "Preferences",
+        "Toggle Preferences",
         "CmdOrCtrl+,",
     ),
     (
@@ -60,17 +60,12 @@ const MENU_ACTIONS: &[(&str, &str, &str, &str)] = &[
         "Focus Files",
         "CmdOrCtrl+1",
     ),
-    (
-        "Workspace",
-        "workspace.nextTab",
-        "Next Tab",
-        "CmdOrCtrl+Tab",
-    ),
+    ("Workspace", "workspace.nextTab", "Next Tab", "Ctrl+Tab"),
     (
         "Workspace",
         "workspace.previousTab",
         "Previous Tab",
-        "CmdOrCtrl+Shift+Tab",
+        "Ctrl+Shift+Tab",
     ),
     (
         "Workspace",
@@ -1088,25 +1083,143 @@ fn language_for_path(path: &str) -> &'static str {
     }
 }
 
-fn install_app_menu(app: &tauri::App) -> tauri::Result<()> {
+fn custom_submenu<'a, R: Runtime, M: Manager<R>>(
+    manager: &'a M,
+    group: &str,
+) -> tauri::Result<Submenu<R>> {
+    let mut submenu = SubmenuBuilder::new(manager, group);
+    for (_, action_id, label, shortcut) in MENU_ACTIONS
+        .iter()
+        .filter(|(action_group, _, _, _)| *action_group == group)
+    {
+        let item = MenuItemBuilder::with_id(*action_id, *label)
+            .accelerator(*shortcut)
+            .build(manager)?;
+        submenu = submenu.item(&item);
+    }
+    submenu.build()
+}
+
+fn build_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<Menu<R>> {
     let handle = app.handle();
     let menu = Menu::new(handle)?;
+    let package = app.package_info();
+    let about_metadata = AboutMetadata {
+        name: Some(package.name.clone()),
+        version: Some(package.version.to_string()),
+        copyright: app.config().bundle.copyright.clone(),
+        authors: app
+            .config()
+            .bundle
+            .publisher
+            .clone()
+            .map(|author| vec![author]),
+        ..Default::default()
+    };
 
-    for group in ["File", "Edit", "Search", "View", "Workspace", "Merge"] {
-        let mut submenu = SubmenuBuilder::new(handle, group);
-        for (_, action_id, label, shortcut) in MENU_ACTIONS
-            .iter()
-            .filter(|(action_group, _, _, _)| *action_group == group)
-        {
-            let item = MenuItemBuilder::with_id(*action_id, *label)
-                .accelerator(*shortcut)
-                .build(handle)?;
-            submenu = submenu.item(&item);
-        }
-        menu.append(&submenu.build()?)?;
+    #[cfg(target_os = "macos")]
+    menu.append(
+        &SubmenuBuilder::new(handle, &package.name)
+            .item(&PredefinedMenuItem::about(
+                handle,
+                None,
+                Some(about_metadata),
+            )?)
+            .separator()
+            .item(&PredefinedMenuItem::services(handle, None)?)
+            .separator()
+            .item(&PredefinedMenuItem::hide(handle, None)?)
+            .item(&PredefinedMenuItem::hide_others(handle, None)?)
+            .separator()
+            .item(&PredefinedMenuItem::quit(handle, None)?)
+            .build()?,
+    )?;
+
+    let mut file = SubmenuBuilder::new(handle, "File");
+    for (_, action_id, label, shortcut) in MENU_ACTIONS
+        .iter()
+        .filter(|(group, _, _, _)| *group == "File")
+    {
+        let item = MenuItemBuilder::with_id(*action_id, *label)
+            .accelerator(*shortcut)
+            .build(handle)?;
+        file = file.item(&item);
     }
+    file = file
+        .separator()
+        .item(&PredefinedMenuItem::close_window(handle, None)?);
+    #[cfg(not(target_os = "macos"))]
+    {
+        file = file
+            .separator()
+            .item(&PredefinedMenuItem::quit(handle, None)?);
+    }
+    menu.append(&file.build()?)?;
 
-    app.set_menu(menu)?;
+    let clear_staged = MENU_ACTIONS
+        .iter()
+        .find(|(_, action_id, _, _)| *action_id == "edit.clearStaged")
+        .expect("clear staged menu action");
+    let clear_staged = MenuItemBuilder::with_id(clear_staged.1, clear_staged.2)
+        .accelerator(clear_staged.3)
+        .build(handle)?;
+    menu.append(
+        &SubmenuBuilder::new(handle, "Edit")
+            .item(&PredefinedMenuItem::undo(handle, None)?)
+            .item(&PredefinedMenuItem::redo(handle, None)?)
+            .separator()
+            .item(&PredefinedMenuItem::cut(handle, None)?)
+            .item(&PredefinedMenuItem::copy(handle, None)?)
+            .item(&PredefinedMenuItem::paste(handle, None)?)
+            .item(&PredefinedMenuItem::select_all(handle, None)?)
+            .separator()
+            .item(&clear_staged)
+            .build()?,
+    )?;
+
+    menu.append(&custom_submenu(handle, "Search")?)?;
+
+    let preferences = MENU_ACTIONS
+        .iter()
+        .find(|(_, action_id, _, _)| *action_id == "view.togglePreferences")
+        .expect("preferences menu action");
+    let preferences = MenuItemBuilder::with_id(preferences.1, preferences.2)
+        .accelerator(preferences.3)
+        .build(handle)?;
+    menu.append(
+        &SubmenuBuilder::new(handle, "View")
+            .item(&preferences)
+            .separator()
+            .item(&PredefinedMenuItem::fullscreen(handle, None)?)
+            .build()?,
+    )?;
+
+    menu.append(&custom_submenu(handle, "Workspace")?)?;
+    menu.append(&custom_submenu(handle, "Merge")?)?;
+
+    menu.append(
+        &SubmenuBuilder::new(handle, "Window")
+            .item(&PredefinedMenuItem::minimize(handle, None)?)
+            .item(&PredefinedMenuItem::maximize(handle, None)?)
+            .separator()
+            .item(&PredefinedMenuItem::close_window(handle, None)?)
+            .build()?,
+    )?;
+
+    let help = SubmenuBuilder::new(handle, "Help");
+    #[cfg(not(target_os = "macos"))]
+    let help = help.item(&PredefinedMenuItem::about(
+        handle,
+        None,
+        Some(about_metadata),
+    )?);
+    menu.append(&help.build()?)?;
+
+    Ok(menu)
+}
+
+fn install_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<()> {
+    app.set_menu(build_app_menu(app)?)?;
     Ok(())
 }
 
@@ -1165,12 +1278,16 @@ mod tests {
     use tempfile::tempdir;
     use zip::{ZipWriter, write::SimpleFileOptions};
 
+    #[cfg(not(target_os = "macos"))]
+    use super::install_app_menu;
     use super::{
-        AppState, MENU_ACTIONS, SearchHit, SearchHitKind, SearchOptions, Side, SidecarClient,
-        class_source_path, deep_search_hit, is_prefetch_sibling, language_for_path,
+        AppActionPayload, AppState, MENU_ACTIONS, SearchHit, SearchHitKind, SearchOptions, Side,
+        SidecarClient, class_source_path, deep_search_hit, is_prefetch_sibling, language_for_path,
         platform_hints_from, read_entry_preview, search_archive, validate_path,
     };
     use ldiff_core::{Archive, DecompileEngine};
+    #[cfg(not(target_os = "macos"))]
+    use tauri::Manager;
 
     #[test]
     fn menu_action_ids_are_unique() {
@@ -1207,16 +1324,79 @@ mod tests {
     }
 
     #[test]
-    fn menu_actions_cover_expected_groups_and_count() {
-        let groups = MENU_ACTIONS
-            .iter()
-            .map(|(group, _, _, _)| *group)
-            .collect::<HashSet<_>>();
+    fn menu_actions_follow_expected_group_order() {
+        let groups = MENU_ACTIONS.iter().map(|(group, _, _, _)| *group).fold(
+            Vec::new(),
+            |mut groups, group| {
+                if groups.last() != Some(&group) {
+                    groups.push(group);
+                }
+                groups
+            },
+        );
 
-        assert_eq!(MENU_ACTIONS.len(), 18);
         assert_eq!(
             groups,
-            HashSet::from(["File", "Edit", "Search", "View", "Workspace", "Merge"])
+            ["File", "Edit", "Search", "View", "Workspace", "Merge"]
+        );
+    }
+
+    #[test]
+    fn menu_actions_match_frontend_action_definitions() {
+        let frontend = include_str!("../../src/lib/actions.ts");
+        let action_count = frontend.matches("{ id: \"").count();
+
+        assert_eq!(action_count, MENU_ACTIONS.len());
+        for (group, action_id, label, shortcut) in MENU_ACTIONS {
+            let signature = format!(
+                "{{ id: \"{action_id}\", label: \"{label}\", group: \"{group}\", shortcut: \"{shortcut}\""
+            );
+            assert!(
+                frontend.contains(&signature),
+                "frontend action definition does not match: {signature}"
+            );
+        }
+    }
+
+    #[test]
+    fn app_action_payload_serializes_camel_case() {
+        let payload = AppActionPayload {
+            action_id: "search.toggle".to_owned(),
+        };
+
+        assert_eq!(
+            serde_json::to_value(payload).unwrap(),
+            serde_json::json!({ "actionId": "search.toggle" })
+        );
+    }
+
+    #[test]
+    #[cfg(not(target_os = "macos"))]
+    fn full_app_menu_builds_with_standard_and_custom_groups() {
+        let app = tauri::test::mock_app();
+
+        install_app_menu(&app).unwrap();
+        let labels = app
+            .menu()
+            .unwrap()
+            .items()
+            .unwrap()
+            .into_iter()
+            .map(|item| item.as_submenu_unchecked().text().unwrap())
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            labels,
+            [
+                "File",
+                "Edit",
+                "Search",
+                "View",
+                "Workspace",
+                "Merge",
+                "Window",
+                "Help",
+            ]
         );
     }
 
