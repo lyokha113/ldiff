@@ -14,7 +14,10 @@ use ldiff_core::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tauri::{Emitter, Manager, State, Window};
+use tauri::{
+    Emitter, Manager, State, Window,
+    menu::{Menu, MenuItemBuilder, SubmenuBuilder},
+};
 
 mod sidecar_process;
 
@@ -22,11 +25,98 @@ use sidecar_process::SidecarClient;
 
 type SharedState = Arc<Mutex<AppState>>;
 
+const MENU_ACTIONS: &[(&str, &str, &str, &str)] = &[
+    ("File", "file.openLeft", "Open Left Source", "CmdOrCtrl+O"),
+    (
+        "File",
+        "file.openRight",
+        "Open Right Target",
+        "CmdOrCtrl+Shift+O",
+    ),
+    ("File", "file.refresh", "Refresh Sources", "CmdOrCtrl+R"),
+    ("File", "file.save", "Save Staged Target", "CmdOrCtrl+S"),
+    (
+        "Edit",
+        "edit.clearStaged",
+        "Clear Staged Changes",
+        "CmdOrCtrl+Shift+Backspace",
+    ),
+    ("Search", "search.toggle", "Toggle Search", "CmdOrCtrl+F"),
+    (
+        "Search",
+        "search.runContextual",
+        "Run Search Or Find",
+        "CmdOrCtrl+Enter",
+    ),
+    (
+        "View",
+        "view.togglePreferences",
+        "Preferences",
+        "CmdOrCtrl+,",
+    ),
+    (
+        "Workspace",
+        "workspace.focusFiles",
+        "Focus Files",
+        "CmdOrCtrl+1",
+    ),
+    (
+        "Workspace",
+        "workspace.nextTab",
+        "Next Tab",
+        "CmdOrCtrl+Tab",
+    ),
+    (
+        "Workspace",
+        "workspace.previousTab",
+        "Previous Tab",
+        "CmdOrCtrl+Shift+Tab",
+    ),
+    (
+        "Workspace",
+        "workspace.closeTab",
+        "Close Active Tab",
+        "CmdOrCtrl+W",
+    ),
+    ("Merge", "merge.copyToLeft", "Copy Entry To Left", "Alt+["),
+    ("Merge", "merge.copyToRight", "Copy Entry To Right", "Alt+]"),
+    (
+        "Merge",
+        "merge.takeAllToLeft",
+        "Take All Into Left",
+        "Alt+Shift+[",
+    ),
+    (
+        "Merge",
+        "merge.takeAllToRight",
+        "Take All Into Right",
+        "Alt+Shift+]",
+    ),
+    (
+        "Merge",
+        "merge.moveHunkToLeft",
+        "Move Hunk Into Left",
+        "CmdOrCtrl+Alt+[",
+    ),
+    (
+        "Merge",
+        "merge.moveHunkToRight",
+        "Move Hunk Into Right",
+        "CmdOrCtrl+Alt+]",
+    ),
+];
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 enum Side {
     Left,
     Right,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppActionPayload {
+    action_id: String,
 }
 
 impl Side {
@@ -998,10 +1088,33 @@ fn language_for_path(path: &str) -> &'static str {
     }
 }
 
+fn install_app_menu(app: &tauri::App) -> tauri::Result<()> {
+    let handle = app.handle();
+    let menu = Menu::new(handle)?;
+
+    for group in ["File", "Edit", "Search", "View", "Workspace", "Merge"] {
+        let mut submenu = SubmenuBuilder::new(handle, group);
+        for (_, action_id, label, shortcut) in MENU_ACTIONS
+            .iter()
+            .filter(|(action_group, _, _, _)| *action_group == group)
+        {
+            let item = MenuItemBuilder::with_id(*action_id, *label)
+                .accelerator(*shortcut)
+                .build(handle)?;
+            submenu = submenu.item(&item);
+        }
+        menu.append(&submenu.build()?)?;
+    }
+
+    app.set_menu(menu)?;
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            install_app_menu(app)?;
             let state = AppState::new(app.path().resource_dir().ok());
             let sidecar = Arc::clone(&state.sidecar);
             std::thread::spawn(move || {
@@ -1011,6 +1124,16 @@ fn main() {
             });
             app.manage(Arc::new(Mutex::new(state)));
             Ok(())
+        })
+        .on_menu_event(|app, event| {
+            let action_id = event.id().as_ref().to_owned();
+            if MENU_ACTIONS
+                .iter()
+                .any(|(_, known_id, _, _)| *known_id == action_id)
+                && let Err(error) = app.emit("app-action", AppActionPayload { action_id })
+            {
+                eprintln!("failed to emit app-action: {error}");
+            }
         })
         .invoke_handler(tauri::generate_handler![
             validate_path,
@@ -1037,17 +1160,59 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs::File, io::Write, path::Path};
+    use std::{collections::HashSet, fs::File, io::Write, path::Path};
 
     use tempfile::tempdir;
     use zip::{ZipWriter, write::SimpleFileOptions};
 
     use super::{
-        AppState, SearchHit, SearchHitKind, SearchOptions, Side, SidecarClient, class_source_path,
-        deep_search_hit, is_prefetch_sibling, language_for_path, platform_hints_from,
-        read_entry_preview, search_archive, validate_path,
+        AppState, MENU_ACTIONS, SearchHit, SearchHitKind, SearchOptions, Side, SidecarClient,
+        class_source_path, deep_search_hit, is_prefetch_sibling, language_for_path,
+        platform_hints_from, read_entry_preview, search_archive, validate_path,
     };
     use ldiff_core::{Archive, DecompileEngine};
+
+    #[test]
+    fn menu_action_ids_are_unique() {
+        let ids = MENU_ACTIONS
+            .iter()
+            .map(|(_, action_id, _, _)| *action_id)
+            .collect::<HashSet<_>>();
+
+        assert_eq!(ids.len(), MENU_ACTIONS.len());
+    }
+
+    #[test]
+    fn menu_action_accelerators_are_unique() {
+        let accelerators = MENU_ACTIONS
+            .iter()
+            .map(|(_, _, _, accelerator)| *accelerator)
+            .collect::<HashSet<_>>();
+
+        assert_eq!(accelerators.len(), MENU_ACTIONS.len());
+    }
+
+    #[test]
+    fn menu_action_accelerators_are_accepted_by_tauri_builder() {
+        for (_, action_id, label, accelerator) in MENU_ACTIONS {
+            let _item =
+                tauri::menu::MenuItemBuilder::with_id(*action_id, *label).accelerator(*accelerator);
+        }
+    }
+
+    #[test]
+    fn menu_actions_cover_expected_groups_and_count() {
+        let groups = MENU_ACTIONS
+            .iter()
+            .map(|(group, _, _, _)| *group)
+            .collect::<HashSet<_>>();
+
+        assert_eq!(MENU_ACTIONS.len(), 18);
+        assert_eq!(
+            groups,
+            HashSet::from(["File", "Edit", "Search", "View", "Workspace", "Merge"])
+        );
+    }
 
     #[test]
     fn app_state_defaults_to_vineflower() {
