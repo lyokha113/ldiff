@@ -20,6 +20,7 @@ function context(overrides: Partial<AppActionContext> = {}): AppActionContext {
     selectedCanCopyRight: false,
     stagedTarget: undefined,
     stagedCount: 0,
+    loadedSourceCount: 0,
     hunkMerge: false,
     focusKind: "none",
     ...overrides,
@@ -78,6 +79,15 @@ describe("action registry", () => {
       enabled: false,
       blockedReason: "Open right source is available only in Compare mode.",
     });
+  });
+
+  it("blocks refresh with no loaded sources and enables it with loaded sources", () => {
+    expect(getActionState("file.refresh", context())).toEqual({
+      enabled: false,
+      blockedReason: "Open a source before refreshing.",
+    });
+    expect(getActionState("file.refresh", context({ loadedSourceCount: 1 }))).toEqual({ enabled: true });
+    expect(getActionState("file.refresh", context({ loadedSourceCount: 2 }))).toEqual({ enabled: true });
   });
 
   it("blocks save without staged changes and enables it with a staged target and count", () => {
@@ -147,6 +157,13 @@ describe("action registry", () => {
     expect(actionHandlers.reportBlocked).toHaveBeenCalledWith("Open right source is available only in Compare mode.");
   });
 
+  it("does not dispatch refresh when no source is loaded", async () => {
+    const actionHandlers = handlers();
+    await expect(dispatchAppAction("file.refresh", context(), actionHandlers)).resolves.toBe(false);
+    expect(actionHandlers.refresh).not.toHaveBeenCalled();
+    expect(actionHandlers.reportBlocked).toHaveBeenCalledWith("Open a source before refreshing.");
+  });
+
   it("maps every action id to its expected handler", async () => {
     const actionHandlers = handlers();
     const enabledContext = context({
@@ -156,6 +173,7 @@ describe("action registry", () => {
       selectedCanCopyRight: true,
       stagedTarget: "right",
       stagedCount: 1,
+      loadedSourceCount: 2,
       hunkMerge: true,
     });
 

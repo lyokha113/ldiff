@@ -994,9 +994,10 @@ export function App() {
     selectedCanCopyRight: mode === "compare" && !!selected?.left && selected.left.kind !== "directory",
     stagedTarget,
     stagedCount: Object.keys(stagedEntries).length,
+    loadedSourceCount: Number(Boolean(archives.left)) + Number(Boolean(archives.right)),
     hunkMerge: activeTab !== "files" && hunkMerge,
     focusKind: classifyFocusTarget(document.activeElement),
-  }), [activeTab, hunkMerge, mode, openTabs, selected, stagedEntries, stagedTarget]);
+  }), [activeTab, archives.left, archives.right, hunkMerge, mode, openTabs, selected, stagedEntries, stagedTarget]);
 
   const actionHandlers = useMemo<AppActionHandlers>(() => ({
     openLeft: () => void browse("left"),

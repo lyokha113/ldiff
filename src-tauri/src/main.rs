@@ -1100,8 +1100,12 @@ fn custom_submenu<R: Runtime, M: Manager<R>>(
     submenu.build()
 }
 
-fn includes_predefined_close_window(target_os: &str) -> bool {
-    target_os != "macos"
+fn predefined_close_window_groups(target_os: &str) -> &'static [&'static str] {
+    if target_os == "macos" {
+        &[]
+    } else {
+        &["Window"]
+    }
 }
 
 fn build_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<Menu<R>> {
@@ -1148,11 +1152,6 @@ fn build_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<Menu<R>> {
             .accelerator(*shortcut)
             .build(handle)?;
         file = file.item(&item);
-    }
-    if includes_predefined_close_window(std::env::consts::OS) {
-        file = file
-            .separator()
-            .item(&PredefinedMenuItem::close_window(handle, None)?);
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -1206,7 +1205,7 @@ fn build_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<Menu<R>> {
     let mut window = SubmenuBuilder::new(handle, "Window")
         .item(&PredefinedMenuItem::minimize(handle, None)?)
         .item(&PredefinedMenuItem::maximize(handle, None)?);
-    if includes_predefined_close_window(std::env::consts::OS) {
+    if predefined_close_window_groups(std::env::consts::OS).contains(&"Window") {
         window = window
             .separator()
             .item(&PredefinedMenuItem::close_window(handle, None)?);
@@ -1289,9 +1288,9 @@ mod tests {
     use super::install_app_menu;
     use super::{
         AppActionPayload, AppState, MENU_ACTIONS, SearchHit, SearchHitKind, SearchOptions, Side,
-        SidecarClient, class_source_path, deep_search_hit, includes_predefined_close_window,
-        is_prefetch_sibling, language_for_path, platform_hints_from, read_entry_preview,
-        search_archive, validate_path,
+        SidecarClient, class_source_path, deep_search_hit, is_prefetch_sibling, language_for_path,
+        platform_hints_from, predefined_close_window_groups, read_entry_preview, search_archive,
+        validate_path,
     };
     use ldiff_core::{Archive, DecompileEngine};
     #[cfg(not(target_os = "macos"))]
@@ -1332,16 +1331,17 @@ mod tests {
     }
 
     #[test]
-    fn macos_cmd_w_is_exclusively_owned_by_close_tab() {
+    fn predefined_close_window_has_one_non_macos_owner_and_no_macos_owner() {
         let close_tab_accelerator = MENU_ACTIONS
             .iter()
             .find(|(_, action_id, _, _)| *action_id == "workspace.closeTab")
             .map(|(_, _, _, accelerator)| *accelerator);
 
         assert_eq!(close_tab_accelerator, Some("CmdOrCtrl+W"));
-        assert!(!includes_predefined_close_window("macos"));
-        assert!(includes_predefined_close_window("windows"));
-        assert!(includes_predefined_close_window("linux"));
+        assert!(predefined_close_window_groups("macos").is_empty());
+        assert_eq!(predefined_close_window_groups("windows"), ["Window"]);
+        assert_eq!(predefined_close_window_groups("linux"), ["Window"]);
+        assert_eq!(predefined_close_window_groups("freebsd"), ["Window"]);
     }
 
     #[test]

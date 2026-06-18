@@ -20,6 +20,7 @@ export interface AppActionContext {
   selectedCanCopyRight: boolean;
   stagedTarget?: Side;
   stagedCount: number;
+  loadedSourceCount: number;
   hunkMerge: boolean;
   focusKind: FocusKind;
 }
@@ -119,6 +120,8 @@ export function getActionState(actionId: AppActionId, context: AppActionContext)
   switch (actionId) {
     case "file.openRight":
       return context.mode === "single" ? blocked("Open right source is available only in Compare mode.") : enabled();
+    case "file.refresh":
+      return context.loadedSourceCount > 0 ? enabled() : blocked("Open a source before refreshing.");
     case "file.save":
       return context.stagedTarget && context.stagedCount > 0 ? enabled() : blocked("No staged changes to save.");
     case "edit.clearStaged":
