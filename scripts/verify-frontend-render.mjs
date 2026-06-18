@@ -56,6 +56,15 @@ try {
   await page.locator("h1", { hasText: "LDiff" }).waitFor({ timeout: 5_000 });
   await page.getByRole("button", { name: /Compare \/ Merge/ }).click();
   await page.locator("text=Open a JAR, ZIP, or folder on each side.").waitFor({ timeout: 5_000 });
+  const commandKey = process.platform === "darwin" ? "Meta" : "Control";
+  const searchInput = page.getByPlaceholder("Search paths, text, constants");
+  await searchInput.waitFor({ timeout: 5_000 });
+  await page.keyboard.press(`${commandKey}+F`);
+  await searchInput.waitFor({ state: "detached", timeout: 5_000 });
+  await page.keyboard.press(`${commandKey}+F`);
+  await searchInput.waitFor({ timeout: 5_000 });
+  await page.keyboard.press(`${commandKey}+Comma`);
+  await page.locator("aside.preferences-drawer.open").waitFor({ timeout: 5_000 });
   const buttonCount = await page.locator("button").count();
   const bodyText = await page.locator("body").innerText();
 
