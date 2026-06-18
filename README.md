@@ -174,24 +174,24 @@ committed or canceled.
 
 | Action | Shortcut | Scope |
 | --- | --- | --- |
-| Open left/source | `Cmd/Ctrl+O` | Open a source archive or folder. |
-| Open right target | `Cmd/Ctrl+Shift+O` | Compare-only right open. |
-| Refresh | `Cmd/Ctrl+R` | Reload the current open source(s). |
-| Save | `Cmd/Ctrl+S` | Needs staged changes. |
-| Clear staged | `Cmd/Ctrl+Shift+Backspace` | Clears staged changes. |
-| Toggle search | `Cmd/Ctrl+F` | Contextual Files/current diff search. |
-| Run contextual search/find | `Cmd/Ctrl+Enter` | Runs the active Files/current diff search. |
-| Preferences | `Cmd/Ctrl+,` | Opens app preferences. |
-| Focus Files | `Cmd/Ctrl+1` | Focuses the Files panel. |
-| Next tab | `Ctrl+Tab` | Moves to the next tab. |
-| Previous tab | `Ctrl+Shift+Tab` | Moves to the previous tab. |
-| Close active tab | `Cmd/Ctrl+W` | Closes the active tab, never the Files panel. |
-| Copy entry left | `Alt+[` | Copies the selected entry left. |
-| Copy entry right | `Alt+]` | Copies the selected entry right. |
-| Take all left | `Alt+Shift+[` | Takes all editable side-by-side diff content left. |
-| Take all right | `Alt+Shift+]` | Takes all editable side-by-side diff content right. |
-| Move hunk left | `Cmd/Ctrl+Alt+[` | Moves the active hunk left in editable side-by-side diff content. |
-| Move hunk right | `Cmd/Ctrl+Alt+]` | Moves the active hunk right in editable side-by-side diff content. |
+| Open left/source | `Cmd/Ctrl+O` | Single mode opens the only source; Compare mode opens the left source. |
+| Open right target | `Cmd/Ctrl+Shift+O` | Compare mode only. |
+| Refresh sources | `Cmd/Ctrl+R` | Reloads the loaded source or both compare sources. |
+| Save staged target | `Cmd/Ctrl+S` | Requires staged changes. |
+| Clear staged changes | `Cmd/Ctrl+Shift+Backspace` | Blocked while typing or editing. |
+| Toggle search | `Cmd/Ctrl+F` | Files tab searches the file index; diff tabs find in the current diff. |
+| Run contextual search/find | `Cmd/Ctrl+Enter` | Runs the active search context. |
+| Preferences | `Cmd/Ctrl+,` | Opens or closes Preferences. |
+| Focus Files tab | `Cmd/Ctrl+1` | Returns to the Files workspace. |
+| Next tab | `Ctrl+Tab` | Moves across open diff tabs. |
+| Previous tab | `Ctrl+Shift+Tab` | Moves across open diff tabs. |
+| Close active tab | `Cmd/Ctrl+W` | Closes the active diff tab, not the Files workspace. |
+| Copy entry to left | `Alt+[` | Blocked while typing or editing. |
+| Copy entry to right | `Alt+]` | Blocked while typing or editing. |
+| Take all into left | `Alt+Shift+[` | Requires editable side-by-side diff content. |
+| Take all into right | `Alt+Shift+]` | Requires editable side-by-side diff content. |
+| Move hunk into left | `Cmd/Ctrl+Alt+[` | Requires editable side-by-side diff content. |
+| Move hunk into right | `Cmd/Ctrl+Alt+]` | Requires editable side-by-side diff content. |
 
 Shortcut remapping and global system-wide hotkeys are not included.
 
