@@ -1339,6 +1339,23 @@ mod tests {
             groups,
             ["File", "Edit", "Search", "View", "Workspace", "Merge"]
         );
+        for (group, expected_count) in [
+            ("File", 4),
+            ("Edit", 1),
+            ("Search", 2),
+            ("View", 1),
+            ("Workspace", 4),
+            ("Merge", 6),
+        ] {
+            let actual_count = MENU_ACTIONS
+                .iter()
+                .filter(|(action_group, _, _, _)| *action_group == group)
+                .count();
+            assert_eq!(
+                actual_count, expected_count,
+                "unexpected {group} action count"
+            );
+        }
     }
 
     #[test]
