@@ -64,7 +64,10 @@ try {
   await page.keyboard.press(`${commandKey}+F`);
   await searchInput.waitFor({ timeout: 5_000 });
   await page.keyboard.press(`${commandKey}+Comma`);
-  await page.locator("aside.preferences-drawer.open").waitFor({ timeout: 5_000 });
+  const preferencesDrawer = page.getByRole("complementary", { name: "Preferences" });
+  await preferencesDrawer.waitFor({ timeout: 5_000 });
+  await page.keyboard.press(`${commandKey}+Comma`);
+  await preferencesDrawer.waitFor({ state: "detached", timeout: 5_000 });
   const buttonCount = await page.locator("button").count();
   const bodyText = await page.locator("body").innerText();
 
