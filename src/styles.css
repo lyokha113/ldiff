@@ -258,6 +258,123 @@ main.app-shell {
 .chip-wrap { display: inline-flex; align-items: center; min-width: 0; width: 100%; }
 .chip-wrap-left { justify-self: start; }
 .chip-wrap-right { justify-self: end; justify-content: flex-end; }
+
+/* ---------- keyboard shortcuts dialog ---------- */
+.shortcut-dialog {
+  width: min(720px, calc(100vw - 2rem));
+  max-width: 720px;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.shortcut-dialog__header {
+  gap: 0.35rem;
+  padding: 1rem 1rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.shortcut-dialog__body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 1rem 1.25rem;
+  padding: 1rem;
+  overflow-y: auto;
+  max-height: min(70vh, 620px);
+}
+
+.shortcut-dialog__section {
+  min-width: 0;
+}
+
+.shortcut-dialog__group-heading {
+  margin: 0 0 0.6rem;
+  color: var(--text-0);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.shortcut-dialog__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shortcut-dialog__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.8rem;
+  min-height: 3rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid color-mix(in oklab, var(--border) 80%, transparent);
+}
+
+.shortcut-dialog__list .shortcut-dialog__row:first-child {
+  border-top: 1px solid color-mix(in oklab, var(--border) 55%, transparent);
+}
+
+.shortcut-dialog__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.shortcut-dialog__label {
+  color: var(--text-0);
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.shortcut-dialog__note {
+  color: var(--text-1);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  line-height: 1.2;
+}
+
+.shortcut-dialog__keys {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.shortcut-dialog__keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 0.25rem;
+  background: color-mix(in oklab, var(--ink-2) 88%, transparent);
+  color: var(--text-0);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .shortcut-dialog__body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shortcut-dialog__row {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .shortcut-dialog__keys {
+    justify-content: flex-start;
+  }
+}
 .chip-sep { opacity: 0.6; flex: 0 0 auto; justify-self: center; }
 .search-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.75rem; }
 .search-bar .search-input { flex: 1 1 auto; }
