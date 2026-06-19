@@ -125,6 +125,8 @@ describe("action registry", () => {
   it("identifies known action ids", () => {
     expect(isAppActionId("file.save")).toBe(true);
     expect(isAppActionId("file.export")).toBe(false);
+    expect(isAppActionId("file.openLeft")).toBe(false);
+    expect(isAppActionId("file.openRight")).toBe(false);
   });
 
   it("blocks opening right sources in single mode", () => {
