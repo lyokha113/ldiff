@@ -129,6 +129,17 @@ describe("action registry", () => {
     expect(isAppActionId("file.openRight")).toBe(false);
   });
 
+  it("exposes the new open handlers and rejects legacy handler names", () => {
+    const actionHandlers = handlers();
+
+    expect(actionHandlers).toHaveProperty("openLeftFile");
+    expect(actionHandlers).toHaveProperty("openLeftDirectory");
+    expect(actionHandlers).toHaveProperty("openRightFile");
+    expect(actionHandlers).toHaveProperty("openRightDirectory");
+    expect(actionHandlers).not.toHaveProperty("openLeft");
+    expect(actionHandlers).not.toHaveProperty("openRight");
+  });
+
   it("blocks opening right sources in single mode", () => {
     expect(getActionState("file.openRightFile", context({ mode: "single" }))).toEqual({
       enabled: false,
