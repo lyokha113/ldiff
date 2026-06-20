@@ -75,8 +75,12 @@ export function SplashScreen({
         <div className="launch__copy">
           <p className="launch__kicker">Precision for compiled archives</p>
           <h1 id="launch-title">
-            {"See every change. Move only what belongs.".split(" ").map((word, index) => (
-              <span className="launch__headline-word" key={`${word}-${index}`}>{word}&nbsp;</span>
+            {["See every change.", "Move only what", "belongs."].map((line) => (
+              <span className="launch__headline-line" key={line}>
+                {line.split(" ").map((word) => (
+                  <span className="launch__headline-word" key={`${line}-${word}`}>{word}&nbsp;</span>
+                ))}
+              </span>
             ))}
           </h1>
           <p className="launch__intro">

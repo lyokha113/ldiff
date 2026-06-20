@@ -53,6 +53,33 @@ Developer ID notarization, Windows Authenticode signing, Windows atomic replace,
 and Linux compositor drop behavior remain external gates in
 `docs/PLATFORM_VALIDATION.md`.
 
+## Frontend Interaction Zones
+
+The desktop shell is organized around the primary Compare workflow without
+moving archive or merge state into presentation components:
+
+```text
+command bar
+  -> source rail
+    -> Files/open-diff navigator
+      -> tree or Monaco workspace canvas
+        -> persistent status bar
+
+context overlays: search, preferences, pending changes, confirmations
+```
+
+`App.tsx` remains the orchestration owner for Tauri-facing state. `MenuBar`,
+`SourceChips`, `WorkspaceTabs`, `FileTree`, `DiffView`, `SearchBar`,
+`SearchResultsPanel`, `ConfigDrawer`, and `StatusBar` render state and emit typed
+intent callbacks. Search opens on demand and closes after result selection, so
+the contextual surface cannot block the Files navigator. View mode removes
+right-side and merge-only controls instead of disabling them.
+
+GSAP and `@gsap/react` are restricted to the startup composition. Normal
+workspace interactions use transform/opacity CSS transitions, and reduced
+motion suppresses nonessential animation. Geist and JetBrains Mono remain
+self-hosted so the desktop bundle renders offline.
+
 ## Generic Boundary Rules
 
 The following boundary rules continue to apply.

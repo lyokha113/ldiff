@@ -21,6 +21,12 @@ function setup(overrides = {}) {
 }
 
 describe("FileTree", () => {
+  it("renders a composed empty state when no source entries are available", () => {
+    setup({ visiblePairs: [] });
+    expect(screen.getByText("Nothing to compare yet")).toBeInTheDocument();
+    expect(screen.getByText(/Choose a JAR, ZIP, folder, or text file above/)).toBeInTheDocument();
+  });
+
   it("renders folders and files; diff folders auto-expand to show files", () => {
     setup();
     // Paired entries (folders, two-sided files) render once per side in two-pane mode.

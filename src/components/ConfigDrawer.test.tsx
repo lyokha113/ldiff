@@ -25,6 +25,7 @@ function setup(overrides = {}) {
     onEngineChange: vi.fn(),
     onIgnoreWhitespaceChange: vi.fn(),
     onBackupEnabledChange: vi.fn(),
+    onClose: vi.fn(),
     ...overrides,
   };
   render(<TooltipProvider><ConfigDrawer {...props} /></TooltipProvider>);
@@ -45,6 +46,12 @@ describe("ConfigDrawer", () => {
     expect(screen.getByText("Light themes")).toBeInTheDocument();
     expect(screen.getByText("Dark themes")).toBeInTheDocument();
     expect(screen.getByText("LDiff Graphite")).toBeInTheDocument();
+  });
+
+  it("closes from the panel header", async () => {
+    const props = setup();
+    await userEvent.click(screen.getByRole("button", { name: "Close preferences" }));
+    expect(props.onClose).toHaveBeenCalled();
   });
 
   it("switches to Typography and changes editor font size", async () => {

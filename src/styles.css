@@ -429,6 +429,10 @@ main.app-shell {
 }
 .app-shell[data-drawer-width="wide"] .config-drawer.open { width: min(42rem, calc(100% - 1rem)); }
 .preferences-drawer { grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0.9rem; }
+.preferences-header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.15rem 0.15rem 0.75rem; border-bottom: 1px solid var(--line-soft); }
+.preferences-header > div { display: grid; gap: 0.18rem; }
+.preferences-header strong { color: var(--text-0); font-size: 0.95rem; font-weight: 640; letter-spacing: -0.025em; }
+.preferences-header span { color: var(--text-2); font-size: 0.66rem; }
 .preferences-nav { padding-right: 0.65rem; border-right: 1px solid var(--line-soft); }
 .preferences-nav button { min-height: 2.15rem; justify-content: flex-start; border-radius: 0.45rem; }
 .preferences-content { padding: 0.15rem 0.35rem 1rem; }
@@ -1122,9 +1126,9 @@ h1 {
   width: min(100%, 92rem);
   margin-inline: auto;
   display: grid;
-  grid-template-columns: minmax(0, 0.82fr) minmax(34rem, 1.18fr);
+  grid-template-columns: minmax(0, 0.95fr) minmax(34rem, 1.05fr);
   align-items: center;
-  gap: clamp(3rem, 7vw, 8rem);
+  gap: clamp(2.5rem, 5vw, 5.5rem);
 }
 
 .launch__copy { min-width: 0; }
@@ -1144,7 +1148,7 @@ h1 {
   background: none;
   color: var(--text-0);
   font-family: "Bricolage Grotesque Variable", var(--font-sans);
-  font-size: clamp(3.15rem, 5.5vw, 6.8rem);
+  font-size: clamp(2.9rem, 5vw, 5.8rem);
   font-weight: 650;
   letter-spacing: -0.072em;
   line-height: 0.92;
@@ -1152,6 +1156,7 @@ h1 {
 }
 
 .launch__headline-word { display: inline-block; }
+.launch__headline-line { display: block; white-space: nowrap; }
 
 .launch__intro {
   max-width: 38rem;
@@ -1469,6 +1474,19 @@ main.app-shell {
 .tree-row.selected { background: color-mix(in oklab, var(--brass) 13%, transparent); box-shadow: inset 2px 0 var(--brass); }
 .tree-mid { border-color: var(--line-soft); }
 .status-chip { border-radius: 0.25rem; font-size: 0.62rem; }
+.tree-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 0.65rem;
+  min-height: min(28rem, calc(100% - 2rem));
+  padding: 2rem;
+  text-align: center;
+}
+.tree-empty__icon { display: grid; place-items: center; width: 3.25rem; height: 3.25rem; border: 1px solid color-mix(in oklab, var(--brass) 24%, var(--line)); border-radius: 0.9rem; background: color-mix(in oklab, var(--brass) 7%, var(--ink-2)); color: var(--brass); }
+.tree-empty__icon svg { width: 1.35rem; height: 1.35rem; }
+.tree-empty strong { color: var(--text-0); font-size: 1rem; font-weight: 620; letter-spacing: -0.025em; }
+.tree-empty p { max-width: 30rem; margin: 0; color: var(--text-2); font-size: 0.74rem; line-height: 1.55; text-wrap: pretty; }
 
 .editor-panel { gap: 0; }
 .copy-actions {
@@ -1523,4 +1541,11 @@ main.app-shell {
   .source-slot__identity, .source-slot__trigger { padding-block: 0.32rem; }
   .search-surface { top: 6.25rem; max-height: calc(100% - 7rem); }
   .status-bar { min-height: 1.45rem; }
+  .tree-empty { min-height: calc(100% - 2rem); padding: 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main.app-shell,
+  .launch,
+  .launch * { animation: none !important; transition-duration: 0.01ms !important; }
 }

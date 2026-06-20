@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -21,6 +22,7 @@ interface ConfigDrawerProps {
   onEngineChange: (engine: Engine) => void;
   onIgnoreWhitespaceChange: (value: boolean) => void;
   onBackupEnabledChange: (value: boolean) => void;
+  onClose: () => void;
 }
 
 const sections: Array<{ id: Section; label: string }> = [
@@ -45,6 +47,7 @@ export function ConfigDrawer({
   onEngineChange,
   onIgnoreWhitespaceChange,
   onBackupEnabledChange,
+  onClose,
 }: ConfigDrawerProps) {
   const [section, setSection] = useState<Section>("appearance");
   if (!open) return null;
@@ -53,6 +56,15 @@ export function ConfigDrawer({
 
   return (
     <aside className="config-drawer open preferences-drawer" role="dialog" aria-modal="false" aria-label="Preferences">
+      <header className="preferences-header">
+        <div>
+          <strong>Preferences</strong>
+          <span>Shape the workspace without changing project data.</span>
+        </div>
+        <Button variant="ghost" size="icon" aria-label="Close preferences" onClick={onClose}>
+          <X />
+        </Button>
+      </header>
       <nav className="preferences-nav" aria-label="Preference categories">
         {sections.map((item) => (
           <Button

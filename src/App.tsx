@@ -144,7 +144,7 @@ export function App() {
   const [suppressSignedWarningForFile, setSuppressSignedWarningForFile] = useState(false);
   const [signedWarningSuppressions, setSignedWarningSuppressions] = useState<Record<string, boolean>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(true);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutDialogOpen, setShortcutDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"files" | string>("files");
   const [openTabs, setOpenTabs] = useState<DiffTab[]>([]);
@@ -968,6 +968,7 @@ export function App() {
     if (!pair) return;
     if (!pairPassesTreeFilter(pair, treeFilter)) setTreeFilter("all");
     setSelectedSearchResult(result);
+    setSearchOpen(false);
     void inspect(pair);
   }
 
@@ -1273,6 +1274,7 @@ export function App() {
           onEngineChange={(next) => void changeEngine(next)}
           onIgnoreWhitespaceChange={setIgnoreTrimWhitespace}
           onBackupEnabledChange={setBackupEnabled}
+          onClose={() => setDrawerOpen(false)}
         />
       </div>
       <StatusBar

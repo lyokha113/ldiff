@@ -228,6 +228,7 @@ async function driveIntoFileCompare(user: ReturnType<typeof userEvent.setup>) {
   render(<App />);
   // Splash → Compare / Merge workspace.
   await user.click(screen.getByText("Compare / Merge"));
+  await user.click(screen.getByLabelText("Toggle search"));
 
   // Open the left source via its repick popover → Browse file.
   await user.click(screen.getByLabelText("Change left source"));
@@ -472,20 +473,20 @@ describe("App file-merge wiring", () => {
     expect(screen.getByRole("button", { name: /^find$/i })).toBeInTheDocument();
   });
 
-  it("Cmd/Ctrl+F toggles search closed and open", async () => {
+  it("Cmd/Ctrl+F toggles search open and closed", async () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click(screen.getByText("Compare / Merge"));
 
-    expect(screen.getByPlaceholderText(/Search paths, text, constants/)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Search paths, text, constants/)).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "f", ...cmdOrCtrl() });
+    expect(await screen.findByPlaceholderText(/Search paths, text, constants/)).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "f", ...cmdOrCtrl() });
     await waitFor(() =>
       expect(screen.queryByPlaceholderText(/Search paths, text, constants/)).not.toBeInTheDocument(),
     );
-
-    fireEvent.keyDown(window, { key: "f", ...cmdOrCtrl() });
-    expect(await screen.findByPlaceholderText(/Search paths, text, constants/)).toBeInTheDocument();
   });
 
   it.each([
@@ -660,7 +661,7 @@ describe("App file-merge wiring", () => {
     fireEvent.keyDown(window, { key: "f", ...cmdOrCtrl() });
     await user.click(screen.getByText("Compare / Merge"));
 
-    expect(await screen.findByPlaceholderText(/Search paths, text, constants/)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Search paths, text, constants/)).not.toBeInTheDocument();
   });
 
   it("Cmd/Ctrl+, toggles Preferences open", async () => {

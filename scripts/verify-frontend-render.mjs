@@ -17,6 +17,24 @@ async function disableAnimations(page) {
   });
 }
 
+async function assertViewportFits(page, width, height, label) {
+  await page.setViewportSize({ width, height });
+  const metrics = await page.evaluate(() => ({
+    bodyWidth: document.body.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth,
+  }));
+  if (metrics.bodyWidth > metrics.viewportWidth + 1) {
+    throw new Error(`${label} has horizontal overflow: body=${metrics.bodyWidth}, viewport=${metrics.viewportWidth}`);
+  }
+
+  const canvas = page.getByRole("region", { name: "Workspace canvas" });
+  await canvas.waitFor({ timeout: 5_000 });
+  const box = await canvas.boundingBox();
+  if (!box || box.height < 120 || box.y >= height) {
+    throw new Error(`${label} hides the workspace canvas at ${width}x${height}`);
+  }
+}
+
 function waitForServer() {
   const deadline = Date.now() + 20_000;
   return new Promise((resolve, reject) => {
@@ -70,11 +88,11 @@ try {
   await page.locator("text=Open a JAR, ZIP, or folder on each side.").waitFor({ timeout: 5_000 });
   const commandKey = process.platform === "darwin" ? "Meta" : "Control";
   const searchInput = page.getByPlaceholder("Search paths, text, constants");
-  await searchInput.waitFor({ timeout: 5_000 });
-  await page.keyboard.press(`${commandKey}+F`);
   await searchInput.waitFor({ state: "detached", timeout: 5_000 });
   await page.keyboard.press(`${commandKey}+F`);
   await searchInput.waitFor({ timeout: 5_000 });
+  await page.keyboard.press(`${commandKey}+F`);
+  await searchInput.waitFor({ state: "detached", timeout: 5_000 });
   await page.keyboard.press(`${commandKey}+Comma`);
   const preferencesDrawer = page.getByRole("dialog", { name: "Preferences" });
   await preferencesDrawer.waitFor({ timeout: 5_000 });
@@ -107,6 +125,13 @@ try {
   }
   await page.keyboard.press("Escape");
   await shortcutsDialog.waitFor({ state: "detached", timeout: 5_000 });
+  for (const viewport of [
+    { width: 1280, height: 800, label: "desktop" },
+    { width: 1024, height: 640, label: "compact desktop" },
+    { width: 720, height: 520, label: "narrow compact" },
+  ]) {
+    await assertViewportFits(page, viewport.width, viewport.height, viewport.label);
+  }
   const buttonCount = await page.locator("button").count();
   const bodyText = await page.locator("body").innerText();
 
@@ -367,6 +392,7 @@ try {
   await mockedPage.getByRole("option", { name: "Differences" }).click();
 
   // Submit via the SearchBar Search button (MenuBar toggle is now "Toggle search").
+  await mockedPage.getByRole("button", { name: "Toggle search" }).click();
   await mockedPage.getByPlaceholder("Search paths, text, constants").fill("right-only");
   await mockedPage.getByRole("button", { name: "Search files" }).waitFor({ timeout: 5_000 });
   await mockedPage.getByRole("button", { name: "Search files", exact: true }).click();
@@ -388,6 +414,7 @@ try {
   await showFilesTab();
   await mockedPage.getByRole("combobox", { name: "Tree filter" }).click();
   await mockedPage.getByRole("option", { name: "Differences" }).click();
+  await mockedPage.getByRole("button", { name: "Toggle search" }).click();
   await mockedPage.getByText("Clear results", { exact: true }).waitFor({ timeout: 5_000 });
   await mockedPage.getByRole("button", { name: "Clear results" }).click();
 

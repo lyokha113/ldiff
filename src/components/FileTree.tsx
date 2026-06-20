@@ -63,6 +63,17 @@ export function FileTree(props: FileTreeProps) {
           <span className="tree-half tree-half-right">{rightLabel ?? "Right"}</span>
         </div>
       )}
+      {tree.length === 0 && (
+        <div className="tree-empty" role="status">
+          <span className="tree-empty__icon"><FileArchive aria-hidden="true" /></span>
+          <strong>{twoPane ? "Nothing to compare yet" : "No source entries yet"}</strong>
+          <p>
+            {twoPane
+              ? "Choose a JAR, ZIP, folder, or text file above on each side, or adjust the Files filter."
+              : "Choose a JAR, ZIP, folder, or text file above to start browsing."}
+          </p>
+        </div>
+      )}
       {tree.map((node) => (
         <FileTreeNode {...props} key={node.path} node={node} depth={0} basePath="" expanded={expanded} onToggle={toggle} />
       ))}
