@@ -158,6 +158,7 @@ export function App() {
   const monacoRef = useRef<MonacoApi | undefined>(undefined);
   const actionContextRef = useRef<AppActionContext | undefined>(undefined);
   const actionHandlersRef = useRef<AppActionHandlers | undefined>(undefined);
+  const shortcutDialogOpenRef = useRef(shortcutDialogOpen);
   const viewRef = useRef(view);
   const lastFocusKindRef = useRef(classifyFocusTarget(document.activeElement));
   const singleSearchDecorations = useRef<string[]>([]);
@@ -182,6 +183,12 @@ export function App() {
   useEffect(() => {
     setIncludeSourceSearch(preferences.search.includeSourceByDefault);
   }, [preferences.search.includeSourceByDefault]);
+
+  const updateShortcutDialogOpen = useCallback((next: boolean | ((current: boolean) => boolean)) => {
+    const resolved = typeof next === "function" ? next(shortcutDialogOpenRef.current) : next;
+    shortcutDialogOpenRef.current = resolved;
+    setShortcutDialogOpen(resolved);
+  }, []);
   const displayedPairs = useMemo<ComparePair[]>(
     () =>
       mode === "compare"
@@ -389,37 +396,45 @@ export function App() {
   }, [activeTab, selected, preview, viewMode]);
 
   async function browse(side: Side) {
-    const path = await chooseFile({
-      multiple: false,
-      // "All files" is the default so any file is selectable — the backend
-      // opens any file and auto-detects text vs binary. The other entries are
-      // convenience filters that narrow the dialog, not gates.
-      filters: [
-        { name: "All files", extensions: ["*"] },
-        {
-          name: "Text file",
-          extensions: [
-            "json", "xml", "properties", "toml", "sql", "txt", "text", "yaml", "yml",
-            "ini", "cfg", "conf", "config", "env", "md", "markdown", "rst", "csv", "tsv", "log",
-            "js", "jsx", "mjs", "cjs", "ts", "tsx", "html", "htm", "xhtml",
-            "css", "scss", "sass", "less", "java", "kt", "kts", "groovy", "gradle",
-            "rs", "go", "py", "rb", "php", "pl", "lua", "c", "h", "cpp", "hpp", "cc",
-            "cs", "swift", "scala", "dart", "sh", "bash", "zsh", "fish", "bat", "ps1",
-            "svg", "graphql", "gql", "proto", "mf", "plist", "tex", "vue", "svelte", "astro",
-          ],
-        },
-        { name: "JAR or ZIP archive", extensions: ["jar", "zip", "war", "ear"] },
-      ],
-    });
-    if (path) await openPath(side, path);
+    try {
+      const path = await chooseFile({
+        multiple: false,
+        // "All files" is the default so any file is selectable — the backend
+        // opens any file and auto-detects text vs binary. The other entries are
+        // convenience filters that narrow the dialog, not gates.
+        filters: [
+          { name: "All files", extensions: ["*"] },
+          {
+            name: "Text file",
+            extensions: [
+              "json", "xml", "properties", "toml", "sql", "txt", "text", "yaml", "yml",
+              "ini", "cfg", "conf", "config", "env", "md", "markdown", "rst", "csv", "tsv", "log",
+              "js", "jsx", "mjs", "cjs", "ts", "tsx", "html", "htm", "xhtml",
+              "css", "scss", "sass", "less", "java", "kt", "kts", "groovy", "gradle",
+              "rs", "go", "py", "rb", "php", "pl", "lua", "c", "h", "cpp", "hpp", "cc",
+              "cs", "swift", "scala", "dart", "sh", "bash", "zsh", "fish", "bat", "ps1",
+              "svg", "graphql", "gql", "proto", "mf", "plist", "tex", "vue", "svelte", "astro",
+            ],
+          },
+          { name: "JAR or ZIP archive", extensions: ["jar", "zip", "war", "ear"] },
+        ],
+      });
+      if (path) await openPath(side, path);
+    } catch (error) {
+      setMessage(`Open file picker failed: ${String(error)}`);
+    }
   }
 
   async function browseFolder(side: Side) {
-    const path = await chooseFile({
-      multiple: false,
-      directory: true,
-    });
-    if (path) await openPath(side, path);
+    try {
+      const path = await chooseFile({
+        multiple: false,
+        directory: true,
+      });
+      if (path) await openPath(side, path);
+    } catch (error) {
+      setMessage(`Open directory picker failed: ${String(error)}`);
+    }
   }
 
   function refreshSources() {
@@ -1013,7 +1028,7 @@ export function App() {
     toggleSearch: () => setSearchOpen((open) => !open),
     runContextualSearch: () => void (searchContext === "files" ? runSearch() : findInCurrentDiff()),
     togglePreferences: () => setDrawerOpen((open) => !open),
-    toggleShortcutDialog: () => setShortcutDialogOpen((open) => !open),
+    toggleShortcutDialog: () => updateShortcutDialogOpen((open) => !open),
     focusFiles: () => setActiveTab("files"),
     nextTab: () => focusRelativeTab(1),
     previousTab: () => focusRelativeTab(-1),
@@ -1038,9 +1053,9 @@ export function App() {
     runSearch,
     save,
     searchContext,
-    setShortcutDialogOpen,
     stagedTarget,
     takeAllTo,
+    updateShortcutDialogOpen,
   ]);
 
   useEffect(() => {
@@ -1063,6 +1078,7 @@ export function App() {
     return dispatchAppAction(actionId, {
       ...context,
       focusKind,
+      shortcutDialogOpen: shortcutDialogOpenRef.current,
     }, handlers);
   }, []);
 
@@ -1078,6 +1094,7 @@ export function App() {
       const focusedContext = {
         ...context,
         focusKind: classifyFocusTarget(event.target),
+        shortcutDialogOpen: shortcutDialogOpenRef.current,
       };
       const state = getActionState(actionId, focusedContext);
       if (state.enabled || focusedContext.shortcutDialogOpen) {
@@ -1245,7 +1262,7 @@ export function App() {
       />
       <KeyboardShortcutsDialog
         open={shortcutDialogOpen}
-        onOpenChange={setShortcutDialogOpen}
+        onOpenChange={updateShortcutDialogOpen}
         platform={currentPlatform()}
       />
       <Dialog open={pendingOpen !== undefined} onOpenChange={(open) => !open && setPendingOpen(undefined)}>

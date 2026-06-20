@@ -121,6 +121,31 @@ type OpenDialogOptions = {
   filters?: Array<{ name: string; extensions: string[] }>;
 };
 
+const FILE_PICKER_OPTIONS: OpenDialogOptions = {
+  multiple: false,
+  filters: [
+    { name: "All files", extensions: ["*"] },
+    {
+      name: "Text file",
+      extensions: [
+        "json", "xml", "properties", "toml", "sql", "txt", "text", "yaml", "yml",
+        "ini", "cfg", "conf", "config", "env", "md", "markdown", "rst", "csv", "tsv", "log",
+        "js", "jsx", "mjs", "cjs", "ts", "tsx", "html", "htm", "xhtml",
+        "css", "scss", "sass", "less", "java", "kt", "kts", "groovy", "gradle",
+        "rs", "go", "py", "rb", "php", "pl", "lua", "c", "h", "cpp", "hpp", "cc",
+        "cs", "swift", "scala", "dart", "sh", "bash", "zsh", "fish", "bat", "ps1",
+        "svg", "graphql", "gql", "proto", "mf", "plist", "tex", "vue", "svelte", "astro",
+      ],
+    },
+    { name: "JAR or ZIP archive", extensions: ["jar", "zip", "war", "ear"] },
+  ],
+};
+
+const DIRECTORY_PICKER_OPTIONS: OpenDialogOptions = {
+  multiple: false,
+  directory: true,
+};
+
 // chooseFile (plugin-dialog `open`) returns a fixed path; openPath then drives
 // validate_path + open_archive.
 const chooseFile = vi.fn(async (_options?: OpenDialogOptions): Promise<string | null> => "/tmp/config.json");
@@ -452,36 +477,27 @@ describe("App file-merge wiring", () => {
     expect(await screen.findByPlaceholderText(/Search paths, text, constants/)).toBeInTheDocument();
   });
 
-  it("wires compare workspace open shortcuts to the correct picker options and sides", async () => {
+  it.each([
+    ["Cmd/Ctrl+O opens the left file picker", { key: "o", ...cmdOrCtrl() }, FILE_PICKER_OPTIONS, "left"],
+    ["Cmd/Ctrl+Alt+O opens the left directory picker", { key: "o", altKey: true, ...cmdOrCtrl() }, DIRECTORY_PICKER_OPTIONS, "left"],
+    ["Cmd/Ctrl+Shift+O opens the right file picker", { key: "o", shiftKey: true, ...cmdOrCtrl() }, FILE_PICKER_OPTIONS, "right"],
+    ["Cmd/Ctrl+Alt+Shift+O opens the right directory picker", { key: "o", altKey: true, shiftKey: true, ...cmdOrCtrl() }, DIRECTORY_PICKER_OPTIONS, "right"],
+  ] as const)("%s", async (_label, keyboardEvent, expectedOptions, expectedSide) => {
     const user = userEvent.setup();
     await openCompareWorkspace(user);
 
     chooseFile.mockClear();
     invoke.mockClear();
 
-    fireEvent.keyDown(window, { key: "o", ...cmdOrCtrl() });
-    await waitFor(() => expect(chooseFile).toHaveBeenCalledWith(expect.objectContaining({ multiple: false })));
-    expect((chooseFile.mock.lastCall?.[0] as OpenDialogOptions | undefined)?.directory).toBeUndefined();
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_archive", { path: "/tmp/config.json", side: "left" }));
+    fireEvent.keyDown(window, keyboardEvent);
 
-    chooseFile.mockClear();
-    invoke.mockClear();
-    fireEvent.keyDown(window, { key: "o", altKey: true, ...cmdOrCtrl() });
-    await waitFor(() => expect(chooseFile).toHaveBeenCalledWith({ multiple: false, directory: true }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_archive", { path: "/tmp/config.json", side: "left" }));
-
-    chooseFile.mockClear();
-    invoke.mockClear();
-    fireEvent.keyDown(window, { key: "o", shiftKey: true, ...cmdOrCtrl() });
-    await waitFor(() => expect(chooseFile).toHaveBeenCalledWith(expect.objectContaining({ multiple: false })));
-    expect((chooseFile.mock.lastCall?.[0] as OpenDialogOptions | undefined)?.directory).toBeUndefined();
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_archive", { path: "/tmp/config.json", side: "right" }));
-
-    chooseFile.mockClear();
-    invoke.mockClear();
-    fireEvent.keyDown(window, { key: "o", altKey: true, shiftKey: true, ...cmdOrCtrl() });
-    await waitFor(() => expect(chooseFile).toHaveBeenCalledWith({ multiple: false, directory: true }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_archive", { path: "/tmp/config.json", side: "right" }));
+    await waitFor(() => expect(chooseFile).toHaveBeenCalledTimes(1));
+    expect(chooseFile.mock.calls).toEqual([[expectedOptions]]);
+    await waitFor(() =>
+      expect(invoke.mock.calls.filter(([cmd]) => cmd === "open_archive")).toEqual([
+        ["open_archive", { path: "/tmp/config.json", side: expectedSide }],
+      ]),
+    );
   });
 
   it("blocks the right-directory shortcut in Decompile/View mode with the Compare-only message", async () => {
@@ -505,6 +521,30 @@ describe("App file-merge wiring", () => {
     fireEvent.keyDown(window, { key: "o", ...cmdOrCtrl() });
 
     await waitFor(() => expect(chooseFile).toHaveBeenCalledTimes(1));
+    expect(invoke.mock.calls.some(([cmd]) => cmd === "open_archive")).toBe(false);
+  });
+
+  it("shows a stable message when the file picker rejects", async () => {
+    const user = userEvent.setup();
+    await openCompareWorkspace(user);
+
+    chooseFile.mockRejectedValueOnce(new Error("dialog unavailable"));
+    invoke.mockClear();
+    fireEvent.keyDown(window, { key: "o", ...cmdOrCtrl() });
+
+    expect(await screen.findByText("Open file picker failed: Error: dialog unavailable")).toBeInTheDocument();
+    expect(invoke.mock.calls.some(([cmd]) => cmd === "open_archive")).toBe(false);
+  });
+
+  it("shows a stable message when the directory picker rejects", async () => {
+    const user = userEvent.setup();
+    await openCompareWorkspace(user);
+
+    chooseFile.mockRejectedValueOnce(new Error("dialog unavailable"));
+    invoke.mockClear();
+    fireEvent.keyDown(window, { key: "o", altKey: true, ...cmdOrCtrl() });
+
+    expect(await screen.findByText("Open directory picker failed: Error: dialog unavailable")).toBeInTheDocument();
     expect(invoke.mock.calls.some(([cmd]) => cmd === "open_archive")).toBe(false);
   });
 
@@ -543,6 +583,26 @@ describe("App file-merge wiring", () => {
     });
 
     expect(await screen.findByRole("dialog", { name: "Keyboard Shortcuts" })).toBeInTheDocument();
+  });
+
+  it("blocks a same-tick native picker action after native help.showShortcuts opens the dialog", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(window, "__TAURI_INTERNALS__", {
+      configurable: true,
+      value: {},
+    });
+    await openCompareWorkspace(user);
+    await waitFor(() => expect(appActionHandler).toBeDefined());
+
+    chooseFile.mockClear();
+    await act(async () => {
+      appActionHandler?.({ payload: { actionId: "help.showShortcuts" } });
+      appActionHandler?.({ payload: { actionId: "file.openLeftFile" } });
+    });
+
+    expect(chooseFile).not.toHaveBeenCalled();
+    expect(await screen.findByRole("dialog", { name: "Keyboard Shortcuts" })).toBeInTheDocument();
+    expect(await screen.findByText("Close Keyboard Shortcuts before running another command.")).toBeInTheDocument();
   });
 
   it("prevents matching DOM shortcuts from opening pickers while the shortcut dialog is open", async () => {
