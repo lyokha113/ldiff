@@ -51,7 +51,7 @@ export function KeyboardShortcutsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="shortcut-dialog rounded-[4px] sm:max-w-[720px]">
+      <DialogContent className="shortcut-dialog sm:max-w-[720px]" style={{ borderRadius: "4px" }}>
         <DialogHeader className="shortcut-dialog__header">
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
           <DialogDescription className="sr-only">
