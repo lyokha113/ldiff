@@ -32,6 +32,10 @@ function formatAriaLabel(tokens: string[]): string {
   return tokens.map((token) => ACCESSIBLE_TOKEN_LABELS[token] ?? token).join(" ");
 }
 
+function getAvailabilityNote(definition: AppActionDefinition): string | undefined {
+  return "availabilityNote" in definition ? definition.availabilityNote : undefined;
+}
+
 export function KeyboardShortcutsDialog({
   open,
   onOpenChange,
@@ -47,7 +51,7 @@ export function KeyboardShortcutsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="shortcut-dialog sm:max-w-[720px]">
+      <DialogContent className="shortcut-dialog rounded-[4px] sm:max-w-[720px]">
         <DialogHeader className="shortcut-dialog__header">
           <DialogTitle>Keyboard Shortcuts</DialogTitle>
           <DialogDescription className="sr-only">
@@ -64,13 +68,14 @@ export function KeyboardShortcutsDialog({
               <ul className="shortcut-dialog__list">
                 {groupDefinitions.map((definition) => {
                   const tokens = formatShortcutTokens(definition.shortcut, platform);
+                  const availabilityNote = getAvailabilityNote(definition);
 
                   return (
                     <li key={definition.id} className="shortcut-dialog__row">
                       <div className="shortcut-dialog__meta">
                         <span className="shortcut-dialog__label">{definition.label}</span>
-                        {definition.availabilityNote ? (
-                          <span className="shortcut-dialog__note">{definition.availabilityNote}</span>
+                        {availabilityNote ? (
+                          <span className="shortcut-dialog__note">{availabilityNote}</span>
                         ) : null}
                       </div>
                       <div
