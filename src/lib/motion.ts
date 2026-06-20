@@ -7,8 +7,8 @@ export const motionDuration = {
 } as const;
 
 export function shouldAnimateUi(
-  preference: "full" | "reduced",
+  preference: "standard" | "reduced",
   systemPrefersReducedMotion: boolean,
 ) {
-  return preference === "full" && !systemPrefersReducedMotion;
+  return preference === "standard" && !systemPrefersReducedMotion;
 }

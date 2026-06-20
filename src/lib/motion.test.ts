@@ -7,10 +7,10 @@ describe("shouldAnimateUi", () => {
   });
 
   it("disables motion for an operating-system reduced-motion request", () => {
-    expect(shouldAnimateUi("full", true)).toBe(false);
+    expect(shouldAnimateUi("standard", true)).toBe(false);
   });
 
   it("allows motion when both settings allow it", () => {
-    expect(shouldAnimateUi("full", false)).toBe(true);
+    expect(shouldAnimateUi("standard", false)).toBe(true);
   });
 });

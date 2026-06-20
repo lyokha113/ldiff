@@ -18,6 +18,7 @@ function setup(overrides = {}) {
     onPickMode: vi.fn(),
     onOpenEntry: vi.fn(),
     onClear: vi.fn(),
+    motion: "standard" as const,
     ...overrides,
   };
   render(<SplashScreen {...props} />);

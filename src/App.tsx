@@ -1137,6 +1137,7 @@ export function App() {
         onPickMode={pickMode}
         onOpenEntry={openEntry}
         onClear={clearRecent}
+        motion={preferences.appearance.motion}
       />
     );
   }

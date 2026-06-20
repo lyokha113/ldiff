@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { timeAgo } from "@/lib/format";
 import type { HistoryEntry, Mode } from "@/lib/history";
 import { motionDuration, motionEase, shouldAnimateUi } from "@/lib/motion";
+import type { Motion } from "@/lib/preferences";
 
 gsap.registerPlugin(useGSAP);
 
@@ -15,6 +16,7 @@ interface SplashScreenProps {
   onPickMode: (mode: Mode) => void;
   onOpenEntry: (entry: HistoryEntry) => void;
   onClear: () => void;
+  motion: Motion;
 }
 
 function EntryPaths({ entry }: { entry: HistoryEntry }) {
@@ -36,13 +38,14 @@ export function SplashScreen({
   onPickMode,
   onOpenEntry,
   onClear,
+  motion,
 }: SplashScreenProps) {
   const rootRef = useRef<HTMLElement>(null);
 
   useGSAP(() => {
     const reduceMotion = typeof window.matchMedia === "function"
       && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (!shouldAnimateUi("full", reduceMotion)) return;
+    if (!shouldAnimateUi(motion, reduceMotion)) return;
 
     const timeline = gsap.timeline({ defaults: { ease: motionEase } });
     timeline
@@ -61,7 +64,7 @@ export function SplashScreen({
         stagger: 0.08,
         duration: motionDuration.slow,
       }, "-=0.25");
-  }, { scope: rootRef });
+  }, { scope: rootRef, dependencies: [motion] });
 
   return (
     <main className="launch" aria-label="Start LDiff" ref={rootRef}>
