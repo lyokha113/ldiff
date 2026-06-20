@@ -26,12 +26,24 @@ use sidecar_process::SidecarClient;
 type SharedState = Arc<Mutex<AppState>>;
 
 const MENU_ACTIONS: &[(&str, &str, &str, &str)] = &[
-    ("File", "file.openLeft", "Open Left Source", "CmdOrCtrl+O"),
+    ("File", "file.openLeftFile", "Open Left File", "CmdOrCtrl+O"),
     (
         "File",
-        "file.openRight",
-        "Open Right Target",
+        "file.openLeftDirectory",
+        "Open Left Directory",
+        "CmdOrCtrl+Alt+O",
+    ),
+    (
+        "File",
+        "file.openRightFile",
+        "Open Right File",
         "CmdOrCtrl+Shift+O",
+    ),
+    (
+        "File",
+        "file.openRightDirectory",
+        "Open Right Directory",
+        "CmdOrCtrl+Alt+Shift+O",
     ),
     ("File", "file.refresh", "Refresh Sources", "CmdOrCtrl+R"),
     ("File", "file.save", "Save Staged Target", "CmdOrCtrl+S"),
@@ -98,6 +110,12 @@ const MENU_ACTIONS: &[(&str, &str, &str, &str)] = &[
         "merge.moveHunkToRight",
         "Move Hunk Into Right",
         "CmdOrCtrl+Alt+]",
+    ),
+    (
+        "Help",
+        "help.showShortcuts",
+        "Keyboard Shortcuts",
+        "CmdOrCtrl+/",
     ),
 ];
 
@@ -1083,6 +1101,17 @@ fn language_for_path(path: &str) -> &'static str {
     }
 }
 
+fn menu_item_for_action<R: Runtime, M: Manager<R>>(
+    manager: &M,
+    action_id: &str,
+    label: &str,
+    shortcut: &str,
+) -> tauri::Result<tauri::menu::MenuItem<R>> {
+    MenuItemBuilder::with_id(action_id, label)
+        .accelerator(shortcut)
+        .build(manager)
+}
+
 fn custom_submenu<R: Runtime, M: Manager<R>>(
     manager: &M,
     group: &str,
@@ -1092,9 +1121,7 @@ fn custom_submenu<R: Runtime, M: Manager<R>>(
         .iter()
         .filter(|(action_group, _, _, _)| *action_group == group)
     {
-        let item = MenuItemBuilder::with_id(*action_id, *label)
-            .accelerator(*shortcut)
-            .build(manager)?;
+        let item = menu_item_for_action(manager, action_id, label, shortcut)?;
         submenu = submenu.item(&item);
     }
     submenu.build()
@@ -1222,9 +1249,14 @@ fn build_app_menu<R: Runtime>(app: &tauri::App<R>) -> tauri::Result<Menu<R>> {
     }
     menu.append(&window.build()?)?;
 
-    let help = SubmenuBuilder::new(handle, "Help");
+    let help_action = MENU_ACTIONS
+        .iter()
+        .find(|(group, _, _, _)| *group == "Help")
+        .expect("help menu action");
+    let help_item = menu_item_for_action(handle, help_action.1, help_action.2, help_action.3)?;
+    let mut help = SubmenuBuilder::new(handle, "Help").item(&help_item);
     #[cfg(not(target_os = "macos"))]
-    let help = help.item(&PredefinedMenuItem::about(
+    let help = help.separator().item(&PredefinedMenuItem::about(
         handle,
         None,
         Some(about_metadata),
@@ -1300,7 +1332,6 @@ mod tests {
         is_prefetch_sibling, language_for_path, platform_hints_from, read_entry_preview,
         search_archive, validate_path,
     };
-    #[cfg(not(target_os = "macos"))]
     use super::{build_app_menu, install_app_menu};
     use ldiff_core::{Archive, DecompileEngine};
     #[cfg(not(target_os = "macos"))]
@@ -1338,6 +1369,43 @@ mod tests {
                     panic!("invalid accelerator {accelerator} for {action_id}: {error}")
                 });
         }
+    }
+
+    #[test]
+    fn menu_actions_include_expected_file_and_help_entries() {
+        assert_eq!(
+            &MENU_ACTIONS[..4],
+            [
+                ("File", "file.openLeftFile", "Open Left File", "CmdOrCtrl+O"),
+                (
+                    "File",
+                    "file.openLeftDirectory",
+                    "Open Left Directory",
+                    "CmdOrCtrl+Alt+O",
+                ),
+                (
+                    "File",
+                    "file.openRightFile",
+                    "Open Right File",
+                    "CmdOrCtrl+Shift+O",
+                ),
+                (
+                    "File",
+                    "file.openRightDirectory",
+                    "Open Right Directory",
+                    "CmdOrCtrl+Alt+Shift+O",
+                ),
+            ]
+        );
+        assert_eq!(
+            MENU_ACTIONS.last().copied(),
+            Some((
+                "Help",
+                "help.showShortcuts",
+                "Keyboard Shortcuts",
+                "CmdOrCtrl+/",
+            ))
+        );
     }
 
     #[test]
@@ -1394,15 +1462,24 @@ mod tests {
 
         assert_eq!(
             groups,
-            ["File", "Edit", "Search", "View", "Workspace", "Merge"]
+            [
+                "File",
+                "Edit",
+                "Search",
+                "View",
+                "Workspace",
+                "Merge",
+                "Help"
+            ]
         );
         for (group, expected_count) in [
-            ("File", 4),
+            ("File", 6),
             ("Edit", 1),
             ("Search", 2),
             ("View", 1),
             ("Workspace", 4),
             ("Merge", 6),
+            ("Help", 1),
         ] {
             let actual_count = MENU_ACTIONS
                 .iter()
@@ -1418,15 +1495,23 @@ mod tests {
     #[test]
     fn menu_actions_match_frontend_action_definitions() {
         let frontend = include_str!("../../src/lib/actions.ts");
-        let action_count = frontend.matches("{ id: \"").count();
+        let normalized_frontend = frontend
+            .chars()
+            .filter(|character| !character.is_whitespace())
+            .collect::<String>();
+        let action_count = frontend.matches("group: \"").count();
 
         assert_eq!(action_count, MENU_ACTIONS.len());
         for (group, action_id, label, shortcut) in MENU_ACTIONS {
             let signature = format!(
-                "{{ id: \"{action_id}\", label: \"{label}\", group: \"{group}\", shortcut: \"{shortcut}\""
+                "{{id:\"{action_id}\",label:\"{label}\",group:\"{group}\",shortcut:\"{shortcut}\""
             );
+            let normalized_signature = signature
+                .chars()
+                .filter(|character| !character.is_whitespace())
+                .collect::<String>();
             assert!(
-                frontend.contains(&signature),
+                normalized_frontend.contains(&normalized_signature),
                 "frontend action definition does not match: {signature}"
             );
         }
@@ -1472,6 +1557,42 @@ mod tests {
                 "Help",
             ]
         );
+
+        let help_texts = menu_texts_for_group(&app.menu().unwrap(), "Help");
+        assert_eq!(help_texts.len(), 3);
+        assert_eq!(help_texts[0], "Keyboard Shortcuts");
+        assert_eq!(help_texts[1], "");
+        assert!(help_texts[2].contains("About"));
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn menu_texts_for_group<R: tauri::Runtime>(
+        menu: &tauri::menu::Menu<R>,
+        group: &str,
+    ) -> Vec<String> {
+        let items = menu.items().expect("top-level menu items");
+        let submenu = items
+            .iter()
+            .filter_map(|item| item.as_submenu())
+            .find(|submenu| submenu.text().is_ok_and(|text| text == group))
+            .unwrap_or_else(|| panic!("missing {group} submenu"));
+
+        submenu
+            .items()
+            .expect("submenu items")
+            .into_iter()
+            .map(|item| {
+                if let Some(menu_item) = item.as_menuitem() {
+                    menu_item.text().expect("menu item text")
+                } else if let Some(predefined) = item.as_predefined_menuitem() {
+                    predefined.text().expect("predefined menu item text")
+                } else if let Some(submenu) = item.as_submenu() {
+                    submenu.text().expect("submenu text")
+                } else {
+                    panic!("unsupported menu item type")
+                }
+            })
+            .collect()
     }
 
     #[test]
