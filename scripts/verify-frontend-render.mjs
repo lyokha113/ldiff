@@ -65,8 +65,8 @@ try {
   });
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await disableAnimations(page);
-  await page.locator("h1", { hasText: "LDiff" }).waitFor({ timeout: 5_000 });
-  await page.getByRole("button", { name: /Compare \/ Merge/ }).click();
+  await page.getByRole("main", { name: "Start LDiff" }).waitFor({ timeout: 5_000 });
+  await page.getByRole("button", { name: "Compare two sources" }).click();
   await page.locator("text=Open a JAR, ZIP, or folder on each side.").waitFor({ timeout: 5_000 });
   const commandKey = process.platform === "darwin" ? "Meta" : "Control";
   const searchInput = page.getByPlaceholder("Search paths, text, constants");
@@ -305,8 +305,8 @@ try {
   });
   await mockedPage.goto(url, { waitUntil: "domcontentloaded" });
   await disableAnimations(mockedPage);
-  await mockedPage.locator("h1", { hasText: "LDiff" }).waitFor({ timeout: 5_000 });
-  await mockedPage.getByRole("button", { name: /Compare \/ Merge/ }).click();
+  await mockedPage.getByRole("main", { name: "Start LDiff" }).waitFor({ timeout: 5_000 });
+  await mockedPage.getByRole("button", { name: "Compare two sources" }).click();
 
   // Helpers for the new chip-based source UI. The path Input only renders while
   // the chip's Popover is open, so open the chip, act, then close (Escape).

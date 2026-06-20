@@ -25,17 +25,25 @@ function setup(overrides = {}) {
 }
 
 describe("SplashScreen", () => {
+  it("presents a task-first startup hierarchy", () => {
+    setup();
+    expect(screen.getByRole("main", { name: "Start LDiff" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Compare two sources" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open one source" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Recent sessions" })).toBeInTheDocument();
+  });
+
   it("renders both mode buttons", () => {
     setup();
-    expect(screen.getByRole("button", { name: /decompile/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /compare/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open one source" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Compare two sources" })).toBeInTheDocument();
   });
 
   it("calls onPickMode with the mode when a button is clicked", async () => {
     const props = setup();
-    await userEvent.click(screen.getByRole("button", { name: /decompile/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Open one source" }));
     expect(props.onPickMode).toHaveBeenCalledWith("single");
-    await userEvent.click(screen.getByRole("button", { name: /compare/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Compare two sources" }));
     expect(props.onPickMode).toHaveBeenCalledWith("compare");
   });
 
