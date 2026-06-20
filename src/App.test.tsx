@@ -115,10 +115,16 @@ vi.mock("@tauri-apps/api/event", () => ({
   listen: (eventName: string, handler: unknown) => listen(eventName, handler),
 }));
 
+type OpenDialogOptions = {
+  multiple?: boolean;
+  directory?: boolean;
+  filters?: Array<{ name: string; extensions: string[] }>;
+};
+
 // chooseFile (plugin-dialog `open`) returns a fixed path; openPath then drives
 // validate_path + open_archive.
-const chooseFile = vi.fn(async () => "/tmp/config.json");
-vi.mock("@tauri-apps/plugin-dialog", () => ({ open: () => chooseFile() }));
+const chooseFile = vi.fn(async (_options?: OpenDialogOptions): Promise<string | null> => "/tmp/config.json");
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: (options?: OpenDialogOptions) => chooseFile(options) }));
 
 // Mutable buffers so setValue is observable and moveHunk has real text to chew.
 const LEFT_TEXT = '{\n  "v": 1\n}\n';
@@ -215,6 +221,11 @@ async function driveIntoFileCompare(user: ReturnType<typeof userEvent.setup>) {
   const row = cells.find((el) => el.closest("button.tree-file"))!;
   await user.click(row);
   await waitFor(() => expect(invoke).toHaveBeenCalledWith("read_entry", { side: "left", entryPath: "config.json" }));
+}
+
+async function openCompareWorkspace(user: ReturnType<typeof userEvent.setup>) {
+  render(<App />);
+  await user.click(screen.getByText("Compare / Merge"));
 }
 
 describe("App file-merge wiring", () => {
@@ -439,6 +450,136 @@ describe("App file-merge wiring", () => {
 
     fireEvent.keyDown(window, { key: "f", ...cmdOrCtrl() });
     expect(await screen.findByPlaceholderText(/Search paths, text, constants/)).toBeInTheDocument();
+  });
+
+  it("wires compare workspace open shortcuts to the correct picker options and sides", async () => {
+    const user = userEvent.setup();
+    await openCompareWorkspace(user);
+
+    chooseFile.mockClear();
+    invoke.mockClear();
+
+    fireEvent.keyDown(window, { key: "o", ...cmdOrCtrl() });
+    await waitFor(() => expect(chooseFile).toHaveBeenCalledWith(expect.objectContaining({ multiple: false })));
+    expect((chooseFile.mock.lastCall?.[0] as OpenDialogOptions | undefined)?.directory).toBeUndefined();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_archive", { path: "/tmp/config.json", side: "left" }));
+
+    chooseFile.mockClear();
+    invoke.mockClear();
+    fireEvent.keyDown(window, { key: "o", altKey: true, ...cmdOrCtrl() });
+    await waitFor(() => expect(chooseFile).toHaveBeenCalledWith({ multiple: false, directory: true }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_archive", { path: "/tmp/config.json", side: "left" }));
+
+    chooseFile.mockClear();
+    invoke.mockClear();
+    fireEvent.keyDown(window, { key: "o", shiftKey: true, ...cmdOrCtrl() });
+    await waitFor(() => expect(chooseFile).toHaveBeenCalledWith(expect.objectContaining({ multiple: false })));
+    expect((chooseFile.mock.lastCall?.[0] as OpenDialogOptions | undefined)?.directory).toBeUndefined();
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_archive", { path: "/tmp/config.json", side: "right" }));
+
+    chooseFile.mockClear();
+    invoke.mockClear();
+    fireEvent.keyDown(window, { key: "o", altKey: true, shiftKey: true, ...cmdOrCtrl() });
+    await waitFor(() => expect(chooseFile).toHaveBeenCalledWith({ multiple: false, directory: true }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("open_archive", { path: "/tmp/config.json", side: "right" }));
+  });
+
+  it("blocks the right-directory shortcut in Decompile/View mode with the Compare-only message", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(screen.getByText("Decompile"));
+
+    chooseFile.mockClear();
+    fireEvent.keyDown(window, { key: "o", altKey: true, shiftKey: true, ...cmdOrCtrl() });
+
+    expect(await screen.findByText("Open right source is available only in Compare mode.")).toBeInTheDocument();
+    expect(chooseFile).not.toHaveBeenCalled();
+  });
+
+  it("does not open an archive when the picker is cancelled", async () => {
+    const user = userEvent.setup();
+    await openCompareWorkspace(user);
+
+    chooseFile.mockResolvedValueOnce(null);
+    invoke.mockClear();
+    fireEvent.keyDown(window, { key: "o", ...cmdOrCtrl() });
+
+    await waitFor(() => expect(chooseFile).toHaveBeenCalledTimes(1));
+    expect(invoke.mock.calls.some(([cmd]) => cmd === "open_archive")).toBe(false);
+  });
+
+  it("Cmd/Ctrl+/ toggles the Keyboard Shortcuts dialog and Escape closes it", async () => {
+    const user = userEvent.setup();
+    await openCompareWorkspace(user);
+
+    fireEvent.keyDown(window, { key: "/", ...cmdOrCtrl() });
+    expect(await screen.findByRole("dialog", { name: "Keyboard Shortcuts" })).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Keyboard Shortcuts" })).not.toBeInTheDocument(),
+    );
+
+    fireEvent.keyDown(window, { key: "/", ...cmdOrCtrl() });
+    expect(await screen.findByRole("dialog", { name: "Keyboard Shortcuts" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "/", ...cmdOrCtrl() });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Keyboard Shortcuts" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("opens the Keyboard Shortcuts dialog from the native help action", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(window, "__TAURI_INTERNALS__", {
+      configurable: true,
+      value: {},
+    });
+    await openCompareWorkspace(user);
+    await waitFor(() => expect(appActionHandler).toBeDefined());
+
+    await act(async () => {
+      appActionHandler?.({ payload: { actionId: "help.showShortcuts" } });
+    });
+
+    expect(await screen.findByRole("dialog", { name: "Keyboard Shortcuts" })).toBeInTheDocument();
+  });
+
+  it("prevents matching DOM shortcuts from opening pickers while the shortcut dialog is open", async () => {
+    const user = userEvent.setup();
+    await openCompareWorkspace(user);
+
+    fireEvent.keyDown(window, { key: "/", ...cmdOrCtrl() });
+    expect(await screen.findByRole("dialog", { name: "Keyboard Shortcuts" })).toBeInTheDocument();
+
+    chooseFile.mockClear();
+    const allowed = fireEvent.keyDown(window, { key: "o", ...cmdOrCtrl() });
+
+    expect(await screen.findByText("Close Keyboard Shortcuts before running another command.")).toBeInTheDocument();
+    expect(allowed).toBe(false);
+    expect(chooseFile).not.toHaveBeenCalled();
+  });
+
+  it("blocks native open-left-file actions while the shortcut dialog is open", async () => {
+    const user = userEvent.setup();
+    Object.defineProperty(window, "__TAURI_INTERNALS__", {
+      configurable: true,
+      value: {},
+    });
+    await openCompareWorkspace(user);
+    await waitFor(() => expect(appActionHandler).toBeDefined());
+
+    fireEvent.keyDown(window, { key: "/", ...cmdOrCtrl() });
+    expect(await screen.findByRole("dialog", { name: "Keyboard Shortcuts" })).toBeInTheDocument();
+
+    chooseFile.mockClear();
+    await act(async () => {
+      appActionHandler?.({ payload: { actionId: "file.openLeftFile" } });
+    });
+
+    expect(await screen.findByText("Close Keyboard Shortcuts before running another command.")).toBeInTheDocument();
+    expect(chooseFile).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: "Keyboard Shortcuts" })).toBeInTheDocument();
   });
 
   it("ignores app shortcuts while the splash screen is active", async () => {

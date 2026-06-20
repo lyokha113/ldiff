@@ -45,6 +45,7 @@ import { SourceChips } from "@/components/SourceChips";
 import { SearchBar } from "@/components/SearchBar";
 import { SearchResultsPanel } from "@/components/SearchResultsPanel";
 import { DiffView, pairHasClass } from "@/components/DiffView";
+import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 import { type DiffTab, evictLru, pickNeighbor, upsertTab } from "@/lib/tabs";
 import { applyPreferencesToRoot, loadUiPreferences, saveUiPreferences } from "@/lib/preferences";
 import { searchContextForActiveTab, searchResultKey } from "@/lib/search";
@@ -67,7 +68,7 @@ import {
   type AppActionContext,
   type AppActionHandlers,
 } from "@/lib/actions";
-import { classifyFocusTarget, matchShortcut } from "@/lib/shortcuts";
+import { classifyFocusTarget, currentPlatform, matchShortcut } from "@/lib/shortcuts";
 
 function isTauriRuntime() {
   return "__TAURI_INTERNALS__" in window;
@@ -143,6 +144,7 @@ export function App() {
   const [signedWarningSuppressions, setSignedWarningSuppressions] = useState<Record<string, boolean>>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(true);
+  const [shortcutDialogOpen, setShortcutDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"files" | string>("files");
   const [openTabs, setOpenTabs] = useState<DiffTab[]>([]);
   const appShellRef = useRef<HTMLElement>(null);
@@ -997,17 +999,21 @@ export function App() {
     loadedSourceCount: Number(Boolean(archives.left)) + Number(Boolean(archives.right)),
     hunkMerge: activeTab !== "files" && hunkMerge,
     focusKind: classifyFocusTarget(document.activeElement),
-  }), [activeTab, archives.left, archives.right, hunkMerge, mode, openTabs, selected, stagedEntries, stagedTarget]);
+    shortcutDialogOpen,
+  }), [activeTab, archives.left, archives.right, hunkMerge, mode, openTabs, selected, shortcutDialogOpen, stagedEntries, stagedTarget]);
 
   const actionHandlers = useMemo<AppActionHandlers>(() => ({
-    openLeft: () => void browse("left"),
-    openRight: () => void browse("right"),
+    openLeftFile: () => void browse("left"),
+    openLeftDirectory: () => void browseFolder("left"),
+    openRightFile: () => void browse("right"),
+    openRightDirectory: () => void browseFolder("right"),
     refresh: refreshSources,
     save: () => stagedTarget && void save(stagedTarget),
     clearStaged: () => void clearStaged(),
     toggleSearch: () => setSearchOpen((open) => !open),
     runContextualSearch: () => void (searchContext === "files" ? runSearch() : findInCurrentDiff()),
     togglePreferences: () => setDrawerOpen((open) => !open),
+    toggleShortcutDialog: () => setShortcutDialogOpen((open) => !open),
     focusFiles: () => setActiveTab("files"),
     nextTab: () => focusRelativeTab(1),
     previousTab: () => focusRelativeTab(-1),
@@ -1021,6 +1027,7 @@ export function App() {
     reportBlocked: setMessage,
   }), [
     browse,
+    browseFolder,
     clearStaged,
     closeActiveTab,
     copy,
@@ -1031,6 +1038,7 @@ export function App() {
     runSearch,
     save,
     searchContext,
+    setShortcutDialogOpen,
     stagedTarget,
     takeAllTo,
   ]);
@@ -1071,7 +1079,8 @@ export function App() {
         ...context,
         focusKind: classifyFocusTarget(event.target),
       };
-      if (getActionState(actionId, focusedContext).enabled) {
+      const state = getActionState(actionId, focusedContext);
+      if (state.enabled || focusedContext.shortcutDialogOpen) {
         event.preventDefault();
       }
       void dispatchAppAction(actionId, focusedContext, handlers);
@@ -1233,6 +1242,11 @@ export function App() {
         results={searchResults}
         grouping={preferences.search.resultGrouping}
         onInspect={inspectSearchResult}
+      />
+      <KeyboardShortcutsDialog
+        open={shortcutDialogOpen}
+        onOpenChange={setShortcutDialogOpen}
+        platform={currentPlatform()}
       />
       <Dialog open={pendingOpen !== undefined} onOpenChange={(open) => !open && setPendingOpen(undefined)}>
         <DialogContent>
