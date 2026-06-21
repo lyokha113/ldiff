@@ -81,11 +81,33 @@ try {
   page.on("pageerror", (error) => {
     messages.push(`pageerror: ${error.stack || error.message}`);
   });
+  await page.addInitScript(() => {
+    const openedAt = Date.now();
+    localStorage.setItem("ldiff.history", JSON.stringify([
+      { id: "render-1", mode: "compare", paths: ["/fixtures/left.jar", "/fixtures/right.jar"], openedAt },
+      { id: "render-2", mode: "single", paths: ["/fixtures/view.jar"], openedAt: openedAt - 60_000 },
+      { id: "render-3", mode: "single", paths: ["/fixtures/third.jar"], openedAt: openedAt - 120_000 },
+      { id: "render-4", mode: "single", paths: ["/fixtures/fourth.jar"], openedAt: openedAt - 180_000 },
+      { id: "render-5", mode: "single", paths: ["/fixtures/fifth.jar"], openedAt: openedAt - 240_000 },
+      { id: "render-6", mode: "single", paths: ["/fixtures/sixth.jar"], openedAt: openedAt - 300_000 },
+    ]));
+  });
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await disableAnimations(page);
   await page.getByRole("main", { name: "Start LDiff" }).waitFor({ timeout: 5_000 });
+  await page.locator(".launch-card--recent").waitFor({ timeout: 5_000 });
+  if (await page.getByRole("button", { name: /reopen/i }).count() !== 5) {
+    throw new Error("startup did not render exactly five collapsed history rows");
+  }
+  await page.getByRole("button", { name: "View all history" }).click();
+  if (await page.getByRole("button", { name: /reopen/i }).count() !== 6) {
+    throw new Error("startup history did not expand to the stored list");
+  }
   await page.getByRole("button", { name: "Compare two sources" }).click();
   await page.locator("text=Open a JAR, ZIP, or folder on each side.").waitFor({ timeout: 5_000 });
+  if (await page.locator(".source-slot__identity").count() !== 0) {
+    throw new Error("source rail still renders visual Left/Right identity labels");
+  }
   const commandKey = process.platform === "darwin" ? "Meta" : "Control";
   const searchInput = page.getByPlaceholder("Search paths, text, constants");
   await searchInput.waitFor({ state: "detached", timeout: 5_000 });
@@ -96,6 +118,16 @@ try {
   await page.keyboard.press(`${commandKey}+Comma`);
   const preferencesDrawer = page.getByRole("dialog", { name: "Preferences" });
   await preferencesDrawer.waitFor({ timeout: 5_000 });
+  const preferencesBody = preferencesDrawer.locator(":scope > .preferences-body");
+  await preferencesBody.waitFor({ timeout: 5_000 });
+  const preferencesHeaderBox = await preferencesDrawer.locator(":scope > .preferences-header").boundingBox();
+  const preferencesBodyBox = await preferencesBody.boundingBox();
+  if (!preferencesHeaderBox || !preferencesBodyBox || preferencesHeaderBox.height > 90) {
+    throw new Error("preferences header is missing or still vertically stretched");
+  }
+  if (preferencesBodyBox.y > preferencesHeaderBox.y + preferencesHeaderBox.height + 24) {
+    throw new Error("preferences body is separated from its header by an excessive gap");
+  }
   await page.keyboard.press(`${commandKey}+Comma`);
   await preferencesDrawer.waitFor({ state: "detached", timeout: 5_000 });
   await page.keyboard.down(commandKey);
@@ -144,6 +176,16 @@ try {
   if (buttonCount < 10) {
     throw new Error(`frontend shell rendered too few buttons: ${buttonCount}`);
   }
+
+  const viewPage = await browser.newPage({ viewport: { width: 1024, height: 640 } });
+  await viewPage.goto(url, { waitUntil: "domcontentloaded" });
+  await disableAnimations(viewPage);
+  await viewPage.getByRole("button", { name: "Open one source" }).click();
+  await viewPage.getByRole("region", { name: "Workspace canvas" }).waitFor({ timeout: 5_000 });
+  if (await viewPage.getByRole("group", { name: "Compare actions" }).count() !== 0) {
+    throw new Error("View mode exposes compare-only actions");
+  }
+  await viewPage.close();
 
   var mockedPage = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   const mockMessages = [];
@@ -431,6 +473,7 @@ try {
   const appRow = mockedPage.locator(".tree-file", { hasText: "App.class" });
   await appRow.waitFor({ timeout: 5_000 });
   await appRow.click();
+  await mockedPage.getByRole("group", { name: "Compare actions" }).waitFor({ timeout: 5_000 });
 
   // Bytecode view (LEFT/RIGHT ASM) then source view (LeftApp/RightApp).
   await mockedPage.getByRole("button", { name: "Show bytecode", exact: true }).click();
@@ -441,7 +484,7 @@ try {
   await mockedPage.locator("text=class RightApp").waitFor({ timeout: 5_000 });
 
   // Copy-to-right staging: MenuBar badge "1 → right" + row badge "pending → right".
-  const copyRightButton = mockedPage.getByRole("button", { name: "Copy to right", exact: true });
+  const copyRightButton = mockedPage.getByRole("button", { name: "Copy file to right", exact: true });
   await copyRightButton.waitFor({ timeout: 5_000 });
   await copyRightButton.click();
   await mockedPage.locator(".command-bar").locator("text=→ right").waitFor({ timeout: 10_000 });
@@ -495,6 +538,9 @@ try {
   await mockedPage.getByRole("combobox", { name: "Mode" }).click();
   await mockedPage.getByRole("option", { name: "View" }).click();
   await mockedPage.getByRole("button", { name: "Change left source", exact: true }).waitFor({ timeout: 5_000 });
+  if (await mockedPage.getByRole("group", { name: "Compare actions" }).count()) {
+    throw new Error("Single mode still rendered compare-only actions");
+  }
   if (await mockedPage.getByRole("button", { name: "Change right source", exact: true }).count()) {
     throw new Error("Single mode still rendered the right source chip");
   }
