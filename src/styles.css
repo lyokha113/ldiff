@@ -428,11 +428,12 @@ main.app-shell {
   backdrop-filter: blur(22px);
 }
 .app-shell[data-drawer-width="wide"] .config-drawer.open { width: min(42rem, calc(100% - 1rem)); }
-.preferences-drawer { grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0.9rem; }
-.preferences-header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.15rem 0.15rem 0.75rem; border-bottom: 1px solid var(--line-soft); }
+.preferences-drawer { grid-template-rows: auto minmax(0, 1fr); align-content: start; gap: 0; }
+.preferences-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 0; padding: 0.15rem 0.15rem 0.75rem; border-bottom: 1px solid var(--line-soft); }
 .preferences-header > div { display: grid; gap: 0.18rem; }
 .preferences-header strong { color: var(--text-0); font-size: 0.95rem; font-weight: 640; letter-spacing: -0.025em; }
 .preferences-header span { color: var(--text-2); font-size: 0.66rem; }
+.preferences-body { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 0.9rem; min-height: 0; padding-top: 0.75rem; }
 .preferences-nav { padding-right: 0.65rem; border-right: 1px solid var(--line-soft); }
 .preferences-nav button { min-height: 2.15rem; justify-content: flex-start; border-radius: 0.45rem; }
 .preferences-content { padding: 0.15rem 0.35rem 1rem; }
@@ -446,8 +447,6 @@ main.app-shell {
 .app-shell[data-drawer-width="wide"] .config-drawer.open { width: 420px; }
 .preferences-drawer {
   display: grid;
-  grid-template-columns: 112px 1fr;
-  gap: 10px;
 }
 .preferences-nav {
   display: flex;
@@ -460,6 +459,7 @@ main.app-shell {
 }
 .preferences-content {
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
 }
 .preference-subhead {
@@ -1401,7 +1401,7 @@ button.launch-card:focus-visible { z-index: 2; outline: 2px solid var(--brass); 
   .search-bar button {
     flex: 1 1 auto;
   }
-  .preferences-drawer {
+  .preferences-body {
     grid-template-columns: 1fr;
   }
   .preferences-nav {
@@ -1536,8 +1536,20 @@ main.app-shell {
   .search-surface__controls { flex-wrap: wrap; }
   .search-field { flex-basis: 100%; }
   .search-inline-check { margin-right: auto; }
-  .preferences-drawer { grid-template-columns: 7.4rem minmax(0, 1fr); }
+  .preferences-body { grid-template-columns: 7.4rem minmax(0, 1fr); }
   .theme-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .preferences-body { grid-template-columns: 1fr; }
+  .preferences-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-right: 0;
+    padding-bottom: 0.5rem;
+    border-right: 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
 }
 
 @media (max-height: 620px) {

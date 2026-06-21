@@ -54,6 +54,16 @@ describe("ConfigDrawer", () => {
     expect(props.onClose).toHaveBeenCalled();
   });
 
+  it("separates the compact header from the scrollable preferences body", () => {
+    setup();
+    const dialog = screen.getByRole("dialog", { name: "Preferences" });
+    expect(dialog.querySelector(":scope > .preferences-header")).toBeInTheDocument();
+    const body = dialog.querySelector(":scope > .preferences-body");
+    expect(body).toBeInTheDocument();
+    expect(body?.querySelector(".preferences-nav")).toBeInTheDocument();
+    expect(body?.querySelector(".preferences-content")).toBeInTheDocument();
+  });
+
   it("switches to Typography and changes editor font size", async () => {
     const props = setup();
     await userEvent.click(screen.getByRole("button", { name: "Typography" }));

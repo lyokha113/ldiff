@@ -65,20 +65,21 @@ export function ConfigDrawer({
           <X />
         </Button>
       </header>
-      <nav className="preferences-nav" aria-label="Preference categories">
-        {sections.map((item) => (
-          <Button
-            key={item.id}
-            variant={section === item.id ? "secondary" : "ghost"}
-            size="sm"
-            aria-pressed={section === item.id}
-            onClick={() => setSection(item.id)}
-          >
-            {item.label}
-          </Button>
-        ))}
-      </nav>
-      <div className="preferences-content">
+      <div className="preferences-body">
+        <nav className="preferences-nav" aria-label="Preference categories">
+          {sections.map((item) => (
+            <Button
+              key={item.id}
+              variant={section === item.id ? "secondary" : "ghost"}
+              size="sm"
+              aria-pressed={section === item.id}
+              onClick={() => setSection(item.id)}
+            >
+              {item.label}
+            </Button>
+          ))}
+        </nav>
+        <div className="preferences-content">
         {section === "appearance" && (
           <section className="drawer-group">
             <span className="zone-label">Appearance</span>
@@ -240,6 +241,7 @@ export function ConfigDrawer({
             </label>
           </section>
         )}
+        </div>
       </div>
     </aside>
   );
