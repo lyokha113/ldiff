@@ -38,6 +38,7 @@ export function ConfigDrawer({
   onClose,
 }: ConfigDrawerProps) {
   const [section, setSection] = useState<Section>("appearance");
+  const [miscPanel, setMiscPanel] = useState<"search" | "decompiler" | "save">("search");
   if (!open) return null;
 
   return (
@@ -80,13 +81,14 @@ export function ConfigDrawer({
               preferences={preferences}
               systemFonts={systemFonts}
               fontStatus={fontStatus}
-              onLoadSystemFonts={onLoadSystemFonts}
               onPreferencesChange={onPreferencesChange}
             />
           )}
           {section === "misc" && (
             <MiscPreferences
               preferences={preferences}
+              panel={miscPanel}
+              onPanelChange={setMiscPanel}
               onPreferencesChange={onPreferencesChange}
             />
           )}

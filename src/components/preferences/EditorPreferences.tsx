@@ -14,7 +14,6 @@ interface EditorPreferencesProps {
   preferences: UiPreferences;
   systemFonts: SystemFont[];
   fontStatus: "idle" | "loading" | "ready" | "fallback";
-  onLoadSystemFonts: () => void;
   onPreferencesChange: (preferences: UiPreferences) => void;
 }
 
@@ -26,7 +25,6 @@ export function EditorPreferences({
   preferences,
   systemFonts,
   fontStatus,
-  onLoadSystemFonts,
   onPreferencesChange,
 }: EditorPreferencesProps) {
   const updateEditor = (editor: UiPreferences["editor"]) =>
@@ -43,7 +41,6 @@ export function EditorPreferences({
       )}
       <Select
         value={preferences.editor.fontFamily}
-        onOpenChange={(open) => open && onLoadSystemFonts()}
         onValueChange={(fontFamily) => updateEditor({ ...preferences.editor, fontFamily })}
       >
         <SelectTrigger aria-label="Editor font family"><SelectValue /></SelectTrigger>

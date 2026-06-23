@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -13,6 +12,8 @@ import type { UiPreferences } from "@/lib/preferences";
 
 interface MiscPreferencesProps {
   preferences: UiPreferences;
+  panel: Panel;
+  onPanelChange: (panel: Panel) => void;
   onPreferencesChange: (preferences: UiPreferences) => void;
 }
 
@@ -26,10 +27,10 @@ const panels: Array<{ id: Panel; label: string }> = [
 
 export function MiscPreferences({
   preferences,
+  panel,
+  onPanelChange,
   onPreferencesChange,
 }: MiscPreferencesProps) {
-  const [panel, setPanel] = useState<Panel>("search");
-
   const updateMisc = (misc: UiPreferences["misc"]) =>
     onPreferencesChange({ ...preferences, misc });
 
@@ -44,7 +45,7 @@ export function MiscPreferences({
             variant={panel === item.id ? "secondary" : "outline"}
             size="sm"
             aria-pressed={panel === item.id}
-            onClick={() => setPanel(item.id)}
+            onClick={() => onPanelChange(item.id)}
           >
             {item.label}
           </Button>

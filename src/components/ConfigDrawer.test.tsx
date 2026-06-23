@@ -35,6 +35,25 @@ describe("ConfigDrawer", () => {
     expect(screen.queryByText("Appearance")).not.toBeInTheDocument();
   });
 
+  it("closes from the panel header", async () => {
+    const props = setup();
+
+    await userEvent.click(screen.getByRole("button", { name: "Close preferences" }));
+
+    expect(props.onClose).toHaveBeenCalled();
+  });
+
+  it("keeps the compact header separate from the scrollable preferences body", () => {
+    setup();
+
+    const dialog = screen.getByRole("dialog", { name: "Preferences" });
+    expect(dialog.querySelector(":scope > .preferences-header")).toBeInTheDocument();
+    const body = dialog.querySelector(":scope > .preferences-body");
+    expect(body).toBeInTheDocument();
+    expect(body?.querySelector(".preferences-nav")).toBeInTheDocument();
+    expect(body?.querySelector(".preferences-content")).toBeInTheDocument();
+  });
+
   it("renders only Appearance, Editor, and Misc as top-level sections", () => {
     setup();
 
@@ -90,6 +109,10 @@ describe("ConfigDrawer", () => {
 
     expect(screen.getByRole("button", { name: "Search" })).toHaveAttribute("aria-pressed", "true");
     await userEvent.click(screen.getByRole("button", { name: "Decompiler" }));
+    expect(screen.getByLabelText("Decompiler engine")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Appearance" }));
+    await userEvent.click(screen.getByRole("button", { name: "Misc" }));
+    expect(screen.getByRole("button", { name: "Decompiler" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByLabelText("Decompiler engine")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(screen.getByText("Keep one overwritten .bak on save")).toBeInTheDocument();
