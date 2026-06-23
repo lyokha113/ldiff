@@ -1,113 +1,144 @@
-import {
-  DEFAULT_THEME_ID,
-  getAccent,
-  getDefaultThemeForMode,
-  getTheme,
-  themeToCssVariables,
-  type AccentId,
-  type ColorMode,
-} from "@/lib/themes";
-
 export const UI_PREFERENCES_STORAGE_KEY = "ldiff.uiPreferences.v1";
 
-export type Density = "compact" | "comfortable";
-export type Radius = "sharp" | "default" | "soft";
-export type Motion = "reduced" | "standard";
-export type IconLabels = "auto" | "always" | "iconsOnly";
-export type FontId = "geist" | "bricolage" | "system";
-export type MonoFontId = "jetbrainsMono" | "systemMono";
-export type FontScale = 12 | 13 | 14 | 15 | 16;
+export type ColorPattern = "light" | "dark" | "system";
+export type EffectiveColorPattern = "light" | "dark";
 export type Toggle = "on" | "off";
-export type DrawerWidth = "default" | "wide";
 export type ResultGrouping = "kind" | "side";
+export type DecompilerEngine = "vineflower" | "cfr";
+
+export const DEFAULT_EDITOR_FONT_FAMILY = "\"JetBrains Mono Variable\", ui-monospace, monospace";
+export const SYSTEM_MONO_FONT_FAMILY = "ui-monospace, monospace";
+export const SYSTEM_SANS_FONT_FAMILY = "ui-sans-serif, system-ui, sans-serif";
+export const EDITOR_FONT_SIZES = [11, 12, 13, 14, 15, 16, 17, 18, 19, 20] as const;
+export type EditorFontSize = (typeof EDITOR_FONT_SIZES)[number];
 
 export interface UiPreferences {
   appearance: {
-    colorMode: ColorMode;
-    themeId: string;
-    accent: AccentId;
-    density: Density;
-    radius: Radius;
-    motion: Motion;
-    iconLabels: IconLabels;
-  };
-  typography: {
-    uiFont: FontId;
-    treeFont: MonoFontId;
-    editorFont: MonoFontId;
-    uiScale: FontScale;
-    treeScale: FontScale;
-    editorScale: FontScale;
+    colorPattern: ColorPattern;
   };
   editor: {
+    fontFamily: string;
+    fontSize: EditorFontSize;
     wordWrap: Toggle;
     lineNumbers: Toggle;
     minimap: Toggle;
   };
-  layout: {
-    preferencesDrawerWidth: DrawerWidth;
-    searchResultsDensity: Density;
-  };
-  search: {
-    includeSourceByDefault: boolean;
-    resultGrouping: ResultGrouping;
+  misc: {
+    search: {
+      includeSourceByDefault: boolean;
+      resultGrouping: ResultGrouping;
+    };
+    decompiler: {
+      engine: DecompilerEngine;
+      ignoreTrimWhitespace: boolean;
+    };
+    save: {
+      backupEnabled: boolean;
+    };
   };
 }
 
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   appearance: {
-    colorMode: "dark",
-    themeId: DEFAULT_THEME_ID,
-    accent: "brass",
-    density: "compact",
-    radius: "default",
-    motion: "standard",
-    iconLabels: "auto",
-  },
-  typography: {
-    uiFont: "geist",
-    treeFont: "jetbrainsMono",
-    editorFont: "jetbrainsMono",
-    uiScale: 13,
-    treeScale: 12,
-    editorScale: 13,
+    colorPattern: "dark",
   },
   editor: {
+    fontFamily: DEFAULT_EDITOR_FONT_FAMILY,
+    fontSize: 13,
     wordWrap: "off",
     lineNumbers: "on",
     minimap: "off",
   },
-  layout: {
-    preferencesDrawerWidth: "default",
-    searchResultsDensity: "compact",
-  },
-  search: {
-    includeSourceByDefault: false,
-    resultGrouping: "kind",
+  misc: {
+    search: {
+      includeSourceByDefault: false,
+      resultGrouping: "kind",
+    },
+    decompiler: {
+      engine: "vineflower",
+      ignoreTrimWhitespace: true,
+    },
+    save: {
+      backupEnabled: false,
+    },
   },
 };
 
-const COLOR_MODES = ["light", "dark"] as const;
-const DENSITIES = ["compact", "comfortable"] as const;
-const RADII = ["sharp", "default", "soft"] as const;
-const MOTIONS = ["reduced", "standard"] as const;
-const ICON_LABELS = ["auto", "always", "iconsOnly"] as const;
-const UI_FONTS = ["geist", "bricolage", "system"] as const;
-const MONO_FONTS = ["jetbrainsMono", "systemMono"] as const;
-const FONT_SCALES = [12, 13, 14, 15, 16] as const;
+const COLOR_PATTERNS = ["light", "dark", "system"] as const;
 const TOGGLES = ["on", "off"] as const;
-const DRAWER_WIDTHS = ["default", "wide"] as const;
 const RESULT_GROUPINGS = ["kind", "side"] as const;
+const DECOMPILER_ENGINES = ["vineflower", "cfr"] as const;
 
-const SANS_FONT_FAMILIES: Record<FontId, string> = {
-  geist: "\"Geist Variable\", ui-sans-serif, system-ui, sans-serif",
-  bricolage: "\"Bricolage Grotesque Variable\", ui-sans-serif, system-ui, sans-serif",
-  system: "ui-sans-serif, system-ui, sans-serif",
+const lightVariables: Record<string, string> = {
+  "--background": "oklch(0.985 0.004 250)",
+  "--foreground": "oklch(0.18 0.018 250)",
+  "--card": "oklch(0.965 0.006 250)",
+  "--card-foreground": "oklch(0.18 0.018 250)",
+  "--popover": "oklch(0.99 0.004 250)",
+  "--popover-foreground": "oklch(0.18 0.018 250)",
+  "--primary": "#5aa9e6",
+  "--primary-foreground": "#071a2a",
+  "--secondary": "oklch(0.93 0.01 250)",
+  "--secondary-foreground": "oklch(0.2 0.018 250)",
+  "--muted": "oklch(0.935 0.008 250)",
+  "--muted-foreground": "oklch(0.48 0.018 250)",
+  "--accent": "oklch(0.91 0.014 250)",
+  "--accent-foreground": "oklch(0.18 0.018 250)",
+  "--destructive": "oklch(0.58 0.18 24)",
+  "--border": "oklch(0.6 0.02 250 / 22%)",
+  "--input": "oklch(0.6 0.02 250 / 24%)",
+  "--ring": "oklch(0.62 0.12 78 / 38%)",
+  "--ink-0": "#f6f8fa",
+  "--ink-1": "#ffffff",
+  "--ink-2": "#eef2f6",
+  "--ink-3": "#d8dee8",
+  "--line": "#d0d7de",
+  "--line-soft": "#e5eaf0",
+  "--text-0": "#24292f",
+  "--text-1": "#57606a",
+  "--text-2": "#6e7781",
+  "--brass": "#5aa9e6",
+  "--brass-dim": "#417ea9",
+  "--st-diff": "#b7791f",
+  "--st-only": "#2563eb",
+  "--st-same": "#15803d",
+  "--danger": "#dc2626",
 };
 
-const MONO_FONT_FAMILIES: Record<MonoFontId, string> = {
-  jetbrainsMono: "\"JetBrains Mono Variable\", ui-monospace, monospace",
-  systemMono: "ui-monospace, monospace",
+const darkVariables: Record<string, string> = {
+  "--background": "oklch(0.169 0.013 256)",
+  "--foreground": "oklch(0.93 0.008 250)",
+  "--card": "oklch(0.214 0.016 256)",
+  "--card-foreground": "oklch(0.95 0.006 250)",
+  "--popover": "oklch(0.205 0.016 256)",
+  "--popover-foreground": "oklch(0.95 0.006 250)",
+  "--primary": "#d9b066",
+  "--primary-foreground": "#2b2110",
+  "--secondary": "oklch(0.29 0.016 256)",
+  "--secondary-foreground": "oklch(0.94 0.006 250)",
+  "--muted": "oklch(0.27 0.014 256)",
+  "--muted-foreground": "oklch(0.69 0.014 256)",
+  "--accent": "oklch(0.32 0.02 256)",
+  "--accent-foreground": "oklch(0.96 0.006 250)",
+  "--destructive": "oklch(0.66 0.18 22)",
+  "--border": "oklch(0.86 0.02 250 / 11%)",
+  "--input": "oklch(0.86 0.02 250 / 16%)",
+  "--ring": "oklch(0.806 0.118 78 / 55%)",
+  "--ink-0": "#10131a",
+  "--ink-1": "#161a22",
+  "--ink-2": "#1c212b",
+  "--ink-3": "#232a36",
+  "--line": "#2a323f",
+  "--line-soft": "#222934",
+  "--text-0": "#e7ecf3",
+  "--text-1": "#aab6c6",
+  "--text-2": "#76828f",
+  "--brass": "#d9b066",
+  "--brass-dim": "#b8944f",
+  "--st-diff": "#e6b766",
+  "--st-only": "#84a9e0",
+  "--st-same": "#7fc69a",
+  "--danger": "#ef9a9a",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -126,84 +157,65 @@ function booleanValue(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
-function themeIdValue(value: unknown, colorMode: ColorMode): string {
-  if (typeof value !== "string") {
-    return getDefaultThemeForMode(colorMode).id;
-  }
-
-  const theme = getTheme(value);
-  if (theme.id !== value || theme.mode !== colorMode) {
-    return getDefaultThemeForMode(colorMode).id;
-  }
-
-  return theme.id;
+function stringValue(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim().length > 0 ? value : fallback;
 }
 
-function normalizeUiPreferencesInput(raw: unknown): UiPreferences {
+function normalizeFontFamily(value: unknown, availableFonts?: readonly string[]): string {
+  const candidate = stringValue(value, DEFAULT_EDITOR_FONT_FAMILY);
+  if (!availableFonts || availableFonts.length === 0) {
+    return candidate;
+  }
+  return availableFonts.includes(candidate) ? candidate : DEFAULT_EDITOR_FONT_FAMILY;
+}
+
+function migrateOldFontFamily(typography: Record<string, unknown>): string | undefined {
+  if (typography.editorFont === "systemMono") {
+    return SYSTEM_MONO_FONT_FAMILY;
+  }
+  if (typography.editorFont === "jetbrainsMono") {
+    return DEFAULT_EDITOR_FONT_FAMILY;
+  }
+  return undefined;
+}
+
+export function normalizeUiPreferences(
+  raw: unknown,
+  availableFonts?: readonly string[],
+): UiPreferences {
   const input = isRecord(raw) ? raw : {};
   const appearance = isRecord(input.appearance) ? input.appearance : {};
-  const typography = isRecord(input.typography) ? input.typography : {};
   const editor = isRecord(input.editor) ? input.editor : {};
-  const layout = isRecord(input.layout) ? input.layout : {};
-  const search = isRecord(input.search) ? input.search : {};
+  const typography = isRecord(input.typography) ? input.typography : {};
+  const misc = isRecord(input.misc) ? input.misc : {};
+  const oldSearch = isRecord(input.search) ? input.search : {};
+  const search = isRecord(misc.search) ? misc.search : oldSearch;
+  const decompiler = isRecord(misc.decompiler) ? misc.decompiler : {};
+  const save = isRecord(misc.save) ? misc.save : {};
 
-  const colorMode = enumValue(
-    appearance.colorMode,
-    COLOR_MODES,
-    DEFAULT_UI_PREFERENCES.appearance.colorMode,
-  );
+  const oldColorPattern =
+    appearance.colorMode === "light" || appearance.colorMode === "dark"
+      ? appearance.colorMode
+      : undefined;
 
   return {
     appearance: {
-      colorMode,
-      themeId: themeIdValue(appearance.themeId, colorMode),
-      accent: getAccent(
-        typeof appearance.accent === "string"
-          ? appearance.accent
-          : DEFAULT_UI_PREFERENCES.appearance.accent,
-      ).id,
-      density: enumValue(
-        appearance.density,
-        DENSITIES,
-        DEFAULT_UI_PREFERENCES.appearance.density,
-      ),
-      radius: enumValue(appearance.radius, RADII, DEFAULT_UI_PREFERENCES.appearance.radius),
-      motion: enumValue(appearance.motion, MOTIONS, DEFAULT_UI_PREFERENCES.appearance.motion),
-      iconLabels: enumValue(
-        appearance.iconLabels,
-        ICON_LABELS,
-        DEFAULT_UI_PREFERENCES.appearance.iconLabels,
-      ),
-    },
-    typography: {
-      uiFont: enumValue(typography.uiFont, UI_FONTS, DEFAULT_UI_PREFERENCES.typography.uiFont),
-      treeFont: enumValue(
-        typography.treeFont,
-        MONO_FONTS,
-        DEFAULT_UI_PREFERENCES.typography.treeFont,
-      ),
-      editorFont: enumValue(
-        typography.editorFont,
-        MONO_FONTS,
-        DEFAULT_UI_PREFERENCES.typography.editorFont,
-      ),
-      uiScale: enumValue(
-        typography.uiScale,
-        FONT_SCALES,
-        DEFAULT_UI_PREFERENCES.typography.uiScale,
-      ),
-      treeScale: enumValue(
-        typography.treeScale,
-        FONT_SCALES,
-        DEFAULT_UI_PREFERENCES.typography.treeScale,
-      ),
-      editorScale: enumValue(
-        typography.editorScale,
-        FONT_SCALES,
-        DEFAULT_UI_PREFERENCES.typography.editorScale,
+      colorPattern: enumValue(
+        appearance.colorPattern ?? oldColorPattern,
+        COLOR_PATTERNS,
+        DEFAULT_UI_PREFERENCES.appearance.colorPattern,
       ),
     },
     editor: {
+      fontFamily: normalizeFontFamily(
+        editor.fontFamily ?? migrateOldFontFamily(typography),
+        availableFonts,
+      ),
+      fontSize: enumValue(
+        editor.fontSize ?? typography.editorScale,
+        EDITOR_FONT_SIZES,
+        DEFAULT_UI_PREFERENCES.editor.fontSize,
+      ),
       wordWrap: enumValue(editor.wordWrap, TOGGLES, DEFAULT_UI_PREFERENCES.editor.wordWrap),
       lineNumbers: enumValue(
         editor.lineNumbers,
@@ -212,46 +224,49 @@ function normalizeUiPreferencesInput(raw: unknown): UiPreferences {
       ),
       minimap: enumValue(editor.minimap, TOGGLES, DEFAULT_UI_PREFERENCES.editor.minimap),
     },
-    layout: {
-      preferencesDrawerWidth: enumValue(
-        layout.preferencesDrawerWidth,
-        DRAWER_WIDTHS,
-        DEFAULT_UI_PREFERENCES.layout.preferencesDrawerWidth,
-      ),
-      searchResultsDensity: enumValue(
-        layout.searchResultsDensity,
-        DENSITIES,
-        DEFAULT_UI_PREFERENCES.layout.searchResultsDensity,
-      ),
-    },
-    search: {
-      includeSourceByDefault: booleanValue(
-        search.includeSourceByDefault,
-        DEFAULT_UI_PREFERENCES.search.includeSourceByDefault,
-      ),
-      resultGrouping: enumValue(
-        search.resultGrouping,
-        RESULT_GROUPINGS,
-        DEFAULT_UI_PREFERENCES.search.resultGrouping,
-      ),
+    misc: {
+      search: {
+        includeSourceByDefault: booleanValue(
+          search.includeSourceByDefault,
+          DEFAULT_UI_PREFERENCES.misc.search.includeSourceByDefault,
+        ),
+        resultGrouping: enumValue(
+          search.resultGrouping,
+          RESULT_GROUPINGS,
+          DEFAULT_UI_PREFERENCES.misc.search.resultGrouping,
+        ),
+      },
+      decompiler: {
+        engine: enumValue(
+          decompiler.engine,
+          DECOMPILER_ENGINES,
+          DEFAULT_UI_PREFERENCES.misc.decompiler.engine,
+        ),
+        ignoreTrimWhitespace: booleanValue(
+          decompiler.ignoreTrimWhitespace,
+          DEFAULT_UI_PREFERENCES.misc.decompiler.ignoreTrimWhitespace,
+        ),
+      },
+      save: {
+        backupEnabled: booleanValue(
+          save.backupEnabled,
+          DEFAULT_UI_PREFERENCES.misc.save.backupEnabled,
+        ),
+      },
     },
   };
 }
 
-export function normalizeUiPreferences(preferences: UiPreferences): UiPreferences {
-  return normalizeUiPreferencesInput(preferences);
-}
-
 export function mergeUiPreferences(raw: unknown): UiPreferences {
-  return normalizeUiPreferencesInput(raw);
+  return normalizeUiPreferences(raw);
 }
 
 export function loadUiPreferences(): UiPreferences {
   try {
     const raw = localStorage.getItem(UI_PREFERENCES_STORAGE_KEY);
-    return mergeUiPreferences(raw ? JSON.parse(raw) : undefined);
+    return normalizeUiPreferences(raw ? JSON.parse(raw) : undefined);
   } catch {
-    return mergeUiPreferences(undefined);
+    return normalizeUiPreferences(undefined);
   }
 }
 
@@ -262,51 +277,44 @@ export function saveUiPreferences(preferences: UiPreferences): void {
   );
 }
 
+export function effectiveColorPattern(
+  colorPattern: ColorPattern,
+  systemPrefersDark: boolean,
+): EffectiveColorPattern {
+  if (colorPattern === "system") {
+    return systemPrefersDark ? "dark" : "light";
+  }
+  return colorPattern;
+}
+
+export function variablesForEffectiveColorPattern(
+  effectivePattern: EffectiveColorPattern,
+): Record<string, string> {
+  return effectivePattern === "light" ? lightVariables : darkVariables;
+}
+
 export function applyPreferencesToRoot(
   root: HTMLElement,
   preferences: UiPreferences,
+  systemPrefersDark: boolean,
 ): void {
   const normalizedPreferences = normalizeUiPreferences(preferences);
-
-  root.dataset.colorMode = normalizedPreferences.appearance.colorMode;
-  root.dataset.theme = normalizedPreferences.appearance.themeId;
-  root.dataset.density = normalizedPreferences.appearance.density;
-  root.dataset.radius = normalizedPreferences.appearance.radius;
-  root.dataset.motion = normalizedPreferences.appearance.motion;
-  root.dataset.iconLabels = normalizedPreferences.appearance.iconLabels;
-  root.dataset.drawerWidth = normalizedPreferences.layout.preferencesDrawerWidth;
-  root.dataset.searchResultsDensity = normalizedPreferences.layout.searchResultsDensity;
-
-  const themeVariables = themeToCssVariables(
-    normalizedPreferences.appearance.themeId,
-    normalizedPreferences.appearance.accent,
+  const effectivePattern = effectiveColorPattern(
+    normalizedPreferences.appearance.colorPattern,
+    systemPrefersDark,
   );
-  for (const [name, value] of Object.entries(themeVariables)) {
+
+  root.dataset.colorPattern = normalizedPreferences.appearance.colorPattern;
+  root.dataset.effectiveColorPattern = effectivePattern;
+
+  for (const [name, value] of Object.entries(variablesForEffectiveColorPattern(effectivePattern))) {
     root.style.setProperty(name, value);
   }
 
-  root.style.setProperty(
-    "--font-sans",
-    SANS_FONT_FAMILIES[normalizedPreferences.typography.uiFont],
-  );
-  root.style.setProperty(
-    "--font-tree",
-    MONO_FONT_FAMILIES[normalizedPreferences.typography.treeFont],
-  );
-  root.style.setProperty(
-    "--font-mono",
-    MONO_FONT_FAMILIES[normalizedPreferences.typography.editorFont],
-  );
-  root.style.setProperty(
-    "--ldiff-ui-font-size",
-    `${normalizedPreferences.typography.uiScale}px`,
-  );
-  root.style.setProperty(
-    "--ldiff-tree-font-size",
-    `${normalizedPreferences.typography.treeScale}px`,
-  );
-  root.style.setProperty(
-    "--ldiff-editor-font-size",
-    `${normalizedPreferences.typography.editorScale}px`,
-  );
+  root.style.removeProperty("--font-sans");
+  root.style.removeProperty("--font-tree");
+  root.style.removeProperty("--font-mono");
+  root.style.removeProperty("--ldiff-ui-font-size");
+  root.style.removeProperty("--ldiff-tree-font-size");
+  root.style.removeProperty("--ldiff-editor-font-size");
 }
