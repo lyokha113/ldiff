@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ConfigDrawer } from "@/components/ConfigDrawer";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DEFAULT_UI_PREFERENCES } from "@/lib/preferences";
-import { DEFAULT_ENGINE } from "@/lib/types";
+import { FALLBACK_SYSTEM_FONTS } from "@/lib/system-fonts";
 
 Object.assign(window.HTMLElement.prototype, {
   hasPointerCapture: vi.fn(() => false),
@@ -17,14 +17,11 @@ function setup(overrides = {}) {
   const props = {
     open: true,
     mode: "compare" as const,
-    engine: DEFAULT_ENGINE,
-    backupEnabled: false,
-    ignoreTrimWhitespace: true,
     preferences: DEFAULT_UI_PREFERENCES,
+    systemFonts: FALLBACK_SYSTEM_FONTS,
+    fontStatus: "ready" as const,
+    onLoadSystemFonts: vi.fn(),
     onPreferencesChange: vi.fn(),
-    onEngineChange: vi.fn(),
-    onIgnoreWhitespaceChange: vi.fn(),
-    onBackupEnabledChange: vi.fn(),
     onClose: vi.fn(),
     ...overrides,
   };
@@ -38,57 +35,60 @@ describe("ConfigDrawer", () => {
     expect(screen.queryByText("Appearance")).not.toBeInTheDocument();
   });
 
-  it("shows Appearance with Light and Dark theme sections by default", () => {
+  it("renders only Appearance, Editor, and Misc as top-level sections", () => {
     setup();
-    expect(screen.getByRole("dialog", { name: "Preferences" })).toBeInTheDocument();
-    expect(screen.getByRole("navigation", { name: "Preference categories" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Appearance" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("Light themes")).toBeInTheDocument();
-    expect(screen.getByText("Dark themes")).toBeInTheDocument();
-    expect(screen.getByText("LDiff Graphite")).toBeInTheDocument();
+
+    const nav = screen.getByRole("navigation", { name: "Preference categories" });
+    expect(within(nav).getByRole("button", { name: "Appearance" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(nav).getByRole("button", { name: "Editor" })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: "Misc" })).toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: "Typography" })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: "Decompiler" })).not.toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
-  it("closes from the panel header", async () => {
+  it("changes Appearance color pattern", async () => {
     const props = setup();
-    await userEvent.click(screen.getByRole("button", { name: "Close preferences" }));
-    expect(props.onClose).toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Light" }));
+
+    expect(props.onPreferencesChange).toHaveBeenCalledWith({
+      ...DEFAULT_UI_PREFERENCES,
+      appearance: { colorPattern: "light" },
+    });
   });
 
-  it("separates the compact header from the scrollable preferences body", () => {
-    setup();
-    const dialog = screen.getByRole("dialog", { name: "Preferences" });
-    expect(dialog.querySelector(":scope > .preferences-header")).toBeInTheDocument();
-    const body = dialog.querySelector(":scope > .preferences-body");
-    expect(body).toBeInTheDocument();
-    expect(body?.querySelector(".preferences-nav")).toBeInTheDocument();
-    expect(body?.querySelector(".preferences-content")).toBeInTheDocument();
-  });
-
-  it("switches to Typography and changes editor font size", async () => {
+  it("loads system fonts when Editor is opened and changes editor font size", async () => {
     const props = setup();
-    await userEvent.click(screen.getByRole("button", { name: "Typography" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Editor" }));
+    expect(props.onLoadSystemFonts).toHaveBeenCalled();
     await userEvent.click(screen.getByLabelText("Editor font size"));
-    const options = screen.getByRole("listbox");
-    await userEvent.click(within(options).getByText("15"));
+    await userEvent.click(within(screen.getByRole("listbox")).getByText("16"));
+
     expect(props.onPreferencesChange).toHaveBeenCalledWith(expect.objectContaining({
-      typography: expect.objectContaining({ editorScale: 15 }),
+      editor: expect.objectContaining({ fontSize: 16 }),
     }));
   });
 
-  it("keeps Vineflower and CFR selectable in Decompiler", async () => {
-    const props = setup();
-    await userEvent.click(screen.getByRole("button", { name: "Decompiler" }));
-    await userEvent.click(screen.getByLabelText("Decompiler engine"));
-    const engineOptions = screen.getByRole("listbox");
-    expect(within(engineOptions).getByText("Vineflower")).toBeInTheDocument();
-    expect(within(engineOptions).getByText("CFR")).toBeInTheDocument();
-    await userEvent.click(within(engineOptions).getByText("CFR"));
-    expect(props.onEngineChange).toHaveBeenCalledWith("cfr");
+  it("shows fallback state when native font enumeration fails", async () => {
+    setup({ fontStatus: "fallback" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Editor" }));
+
+    expect(screen.getByText("Using bundled fallback fonts")).toBeInTheDocument();
   });
 
-  it("shows backup toggle only in compare mode", async () => {
+  it("renders Misc segmented controls and keeps Save visible in single mode", async () => {
     setup({ mode: "single" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Misc" }));
+
+    expect(screen.getByRole("button", { name: "Search" })).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Decompiler" }));
+    expect(screen.getByLabelText("Decompiler engine")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Save" }));
-    expect(screen.queryByText(/Keep one overwritten .bak on save/)).not.toBeInTheDocument();
+    expect(screen.getByText("Keep one overwritten .bak on save")).toBeInTheDocument();
   });
 });
