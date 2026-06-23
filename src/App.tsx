@@ -183,8 +183,10 @@ export function App() {
   const inspectRef = useRef(inspect);
   const handleEditorMount = useCallback<OnMount>((editor, monaco) => { editorRef.current = editor; monacoRef.current = monaco; }, []);
   const handleDiffMount = useCallback<DiffOnMount>((editor, monaco) => { diffEditorRef.current = editor; monacoRef.current = monaco; }, []);
-  const availableFontFamilies =
-    fontStatus === "ready" ? fontFamilies(systemFonts) : undefined;
+  const availableFontFamilies = useMemo(
+    () => (fontStatus === "ready" ? fontFamilies(systemFonts) : undefined),
+    [fontStatus, systemFonts],
+  );
   useEffect(() => {
     const normalized = normalizeUiPreferences(preferences, availableFontFamilies);
     if (normalized !== preferences && JSON.stringify(normalized) !== JSON.stringify(preferences)) {

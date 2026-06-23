@@ -388,6 +388,7 @@ describe("App file-merge wiring", () => {
     render(<App />);
     await user.click(screen.getByText("Compare / Merge"));
 
+    await waitFor(() => expect(invoke.mock.calls.filter(([cmd]) => cmd === "set_engine")).toHaveLength(1));
     await waitFor(() =>
       expect(JSON.parse(localStorage.getItem("ldiff.uiPreferences.v1") ?? "{}").editor.fontFamily).toBe("Menlo"),
     );
@@ -396,6 +397,8 @@ describe("App file-merge wiring", () => {
     await user.click(screen.getByRole("button", { name: "Editor" }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("list_system_fonts"));
     await waitFor(() => expect(screen.getByLabelText("Editor font family")).toHaveTextContent("Menlo"));
+    await user.click(screen.getByLabelText("Close preferences"));
+    expect(invoke.mock.calls.filter(([cmd]) => cmd === "set_engine")).toHaveLength(1);
   });
 
   it("loads installed fonts when Editor preferences open", async () => {
