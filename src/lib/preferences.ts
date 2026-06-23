@@ -68,6 +68,11 @@ const COLOR_PATTERNS = ["light", "dark", "system"] as const;
 const TOGGLES = ["on", "off"] as const;
 const RESULT_GROUPINGS = ["kind", "side"] as const;
 const DECOMPILER_ENGINES = ["vineflower", "cfr"] as const;
+const BUILT_IN_FONT_FAMILIES = [
+  DEFAULT_EDITOR_FONT_FAMILY,
+  SYSTEM_MONO_FONT_FAMILY,
+  SYSTEM_SANS_FONT_FAMILY,
+] as const;
 
 const lightVariables: Record<string, string> = {
   "--background": "oklch(0.985 0.004 250)",
@@ -158,7 +163,11 @@ function booleanValue(value: unknown, fallback: boolean): boolean {
 }
 
 function stringValue(value: unknown, fallback: string): string {
-  return typeof value === "string" && value.trim().length > 0 ? value : fallback;
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : fallback;
+}
+
+function isBuiltInFontFamily(value: string): boolean {
+  return BUILT_IN_FONT_FAMILIES.includes(value as (typeof BUILT_IN_FONT_FAMILIES)[number]);
 }
 
 function normalizeFontFamily(value: unknown, availableFonts?: readonly string[]): string {
@@ -166,7 +175,10 @@ function normalizeFontFamily(value: unknown, availableFonts?: readonly string[])
   if (!availableFonts || availableFonts.length === 0) {
     return candidate;
   }
-  return availableFonts.includes(candidate) ? candidate : DEFAULT_EDITOR_FONT_FAMILY;
+  if (isBuiltInFontFamily(candidate) || availableFonts.includes(candidate)) {
+    return candidate;
+  }
+  return DEFAULT_EDITOR_FONT_FAMILY;
 }
 
 function migrateOldFontFamily(typography: Record<string, unknown>): string | undefined {
@@ -306,6 +318,14 @@ export function applyPreferencesToRoot(
 
   root.dataset.colorPattern = normalizedPreferences.appearance.colorPattern;
   root.dataset.effectiveColorPattern = effectivePattern;
+  delete root.dataset.colorMode;
+  delete root.dataset.theme;
+  delete root.dataset.density;
+  delete root.dataset.radius;
+  delete root.dataset.motion;
+  delete root.dataset.iconLabels;
+  delete root.dataset.drawerWidth;
+  delete root.dataset.searchResultsDensity;
 
   for (const [name, value] of Object.entries(variablesForEffectiveColorPattern(effectivePattern))) {
     root.style.setProperty(name, value);

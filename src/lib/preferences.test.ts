@@ -8,6 +8,8 @@ import {
   mergeUiPreferences,
   normalizeUiPreferences,
   saveUiPreferences,
+  SYSTEM_MONO_FONT_FAMILY,
+  SYSTEM_SANS_FONT_FAMILY,
   UI_PREFERENCES_STORAGE_KEY,
   type UiPreferences,
 } from "@/lib/preferences";
@@ -98,6 +100,33 @@ describe("UI preferences persistence", () => {
     expect(preferences.editor.fontFamily).toBe(DEFAULT_EDITOR_FONT_FAMILY);
   });
 
+  it("preserves built-in fallback font families even when not installed", () => {
+    const monospacePreferences = normalizeUiPreferences(
+      {
+        ...DEFAULT_UI_PREFERENCES,
+        editor: {
+          ...DEFAULT_UI_PREFERENCES.editor,
+          fontFamily: SYSTEM_MONO_FONT_FAMILY,
+        },
+      },
+      ["Menlo"],
+    );
+
+    const sansPreferences = normalizeUiPreferences(
+      {
+        ...DEFAULT_UI_PREFERENCES,
+        editor: {
+          ...DEFAULT_UI_PREFERENCES.editor,
+          fontFamily: SYSTEM_SANS_FONT_FAMILY,
+        },
+      },
+      ["Menlo"],
+    );
+
+    expect(monospacePreferences.editor.fontFamily).toBe(SYSTEM_MONO_FONT_FAMILY);
+    expect(sansPreferences.editor.fontFamily).toBe(SYSTEM_SANS_FONT_FAMILY);
+  });
+
   it("keeps a selected font when it is available", () => {
     const preferences = normalizeUiPreferences(
       {
@@ -111,6 +140,29 @@ describe("UI preferences persistence", () => {
     );
 
     expect(preferences.editor.fontFamily).toBe("Menlo");
+  });
+
+  it("trims font-family strings before normalization and persistence", () => {
+    const normalized = normalizeUiPreferences({
+      ...DEFAULT_UI_PREFERENCES,
+      editor: {
+        ...DEFAULT_UI_PREFERENCES.editor,
+        fontFamily: "  Menlo  ",
+      },
+    });
+
+    saveUiPreferences({
+      ...DEFAULT_UI_PREFERENCES,
+      editor: {
+        ...DEFAULT_UI_PREFERENCES.editor,
+        fontFamily: "  Menlo  ",
+      },
+    });
+
+    expect(normalized.editor.fontFamily).toBe("Menlo");
+    expect(JSON.parse(localStorage.getItem(UI_PREFERENCES_STORAGE_KEY) ?? "")).toMatchObject({
+      editor: { fontFamily: "Menlo" },
+    });
   });
 
   it("writes normalized preferences JSON to localStorage", () => {
@@ -139,6 +191,14 @@ describe("UI preferences persistence", () => {
 
   it("applies only appearance variables to the app root", () => {
     const root = document.createElement("div");
+    root.dataset.colorMode = "dark";
+    root.dataset.theme = "github-dark";
+    root.dataset.density = "compact";
+    root.dataset.radius = "default";
+    root.dataset.motion = "standard";
+    root.dataset.iconLabels = "auto";
+    root.dataset.drawerWidth = "wide";
+    root.dataset.searchResultsDensity = "compact";
     const preferences: UiPreferences = {
       ...DEFAULT_UI_PREFERENCES,
       appearance: { colorPattern: "light" },
@@ -153,6 +213,14 @@ describe("UI preferences persistence", () => {
 
     expect(root.dataset.colorPattern).toBe("light");
     expect(root.dataset.effectiveColorPattern).toBe("light");
+    expect(root.dataset.colorMode).toBeUndefined();
+    expect(root.dataset.theme).toBeUndefined();
+    expect(root.dataset.density).toBeUndefined();
+    expect(root.dataset.radius).toBeUndefined();
+    expect(root.dataset.motion).toBeUndefined();
+    expect(root.dataset.iconLabels).toBeUndefined();
+    expect(root.dataset.drawerWidth).toBeUndefined();
+    expect(root.dataset.searchResultsDensity).toBeUndefined();
     expect(root.style.getPropertyValue("--background")).not.toBe("");
     expect(root.style.getPropertyValue("--font-mono")).toBe("");
     expect(root.style.getPropertyValue("--ldiff-editor-font-size")).toBe("");
