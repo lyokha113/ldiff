@@ -20,8 +20,10 @@ use tauri::{
 };
 
 mod sidecar_process;
+mod system_fonts;
 
 use sidecar_process::SidecarClient;
+use system_fonts::list_system_fonts;
 
 type SharedState = Arc<Mutex<AppState>>;
 
@@ -1299,6 +1301,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             validate_path,
             platform_hints,
+            list_system_fonts,
             open_archive,
             compute_diff,
             compute_nested_diff,
