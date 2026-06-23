@@ -56,6 +56,11 @@ const invoke = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
   switch (cmd) {
     case "platform_hints":
       return { os: "linux", sessionType: null, wayland: false, dropHint: null };
+    case "list_system_fonts":
+      return [
+        { family: "Menlo", monospaceLikely: true },
+        { family: "Helvetica Neue", monospaceLikely: false },
+      ];
     case "validate_path":
       return (args?.raw as string) ?? "/tmp/config.json";
     case "open_archive":
@@ -93,7 +98,8 @@ const invoke = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
 // Deferred arrow: vi.mock factories are hoisted above the `invoke`/`chooseFile`
 // declarations, so reference them lazily to avoid a TDZ error at mock time.
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: (cmd: string, args?: Record<string, unknown>) => invoke(cmd, args),
+  invoke: (cmd: string, args?: Record<string, unknown>) =>
+    (args === undefined ? invoke(cmd) : invoke(cmd, args)),
 }));
 vi.mock("@tauri-apps/api/window", () => ({
   getCurrentWindow: () => ({
@@ -269,6 +275,26 @@ describe("App file-merge wiring", () => {
     deferredAppActionListen = undefined;
     appActionHandler = undefined;
     listen.mockClear();
+    Object.defineProperty(Element.prototype, "hasPointerCapture", {
+      configurable: true,
+      writable: true,
+      value: () => false,
+    });
+    Object.defineProperty(Element.prototype, "setPointerCapture", {
+      configurable: true,
+      writable: true,
+      value: () => undefined,
+    });
+    Object.defineProperty(Element.prototype, "releasePointerCapture", {
+      configurable: true,
+      writable: true,
+      value: () => undefined,
+    });
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: () => undefined,
+    });
     delete (window as typeof window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
     localStorage.clear();
   });
@@ -335,21 +361,33 @@ describe("App file-merge wiring", () => {
     );
   });
 
-  it("applies persisted UI preferences to the app shell", async () => {
+  it("applies persisted Appearance preferences to the app shell", async () => {
     const user = userEvent.setup();
     localStorage.setItem("ldiff.uiPreferences.v1", JSON.stringify({
-      appearance: { density: "comfortable", radius: "soft", motion: "reduced" },
-      typography: { editorScale: 15 },
+      appearance: { colorPattern: "light" },
+      editor: { fontFamily: "Menlo", fontSize: 15 },
     }));
 
     render(<App />);
     await user.click(screen.getByText("Compare / Merge"));
 
     const shell = await screen.findByRole("main");
-    await waitFor(() => expect(shell.dataset.density).toBe("comfortable"));
-    expect(shell.dataset.radius).toBe("soft");
-    expect(shell.dataset.motion).toBe("reduced");
-    expect(shell.style.getPropertyValue("--ldiff-editor-font-size")).toBe("15px");
+    await waitFor(() => expect(shell.dataset.colorPattern).toBe("light"));
+    expect(shell.dataset.effectiveColorPattern).toBe("light");
+    expect(shell.style.getPropertyValue("--ldiff-editor-font-size")).toBe("");
+  });
+
+  it("loads installed fonts when Editor preferences open", async () => {
+    const user = userEvent.setup();
+
+    render(<App />);
+    await user.click(screen.getByText("Compare / Merge"));
+    await user.click(screen.getByLabelText("Preferences"));
+    await user.click(screen.getByRole("button", { name: "Editor" }));
+
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("list_system_fonts"));
+    await user.click(screen.getByLabelText("Editor font family"));
+    expect(await screen.findByText(/Menlo/)).toBeInTheDocument();
   });
 
   it("runs Files index search with typed backend options on both compare sides", async () => {

@@ -8,9 +8,7 @@ import {
   type CommitResult,
   type ComparePair,
   type DecorationRef,
-  DEFAULT_ENGINE,
   type DiffCodeEditor,
-  type Engine,
   type EntryKind,
   type EntryPreview,
   type Mode,
@@ -47,7 +45,19 @@ import { SearchResultsPanel } from "@/components/SearchResultsPanel";
 import { DiffView, pairHasClass } from "@/components/DiffView";
 import { KeyboardShortcutsDialog } from "@/components/KeyboardShortcutsDialog";
 import { type DiffTab, evictLru, pickNeighbor, upsertTab } from "@/lib/tabs";
-import { applyPreferencesToRoot, loadUiPreferences, saveUiPreferences } from "@/lib/preferences";
+import {
+  applyPreferencesToRoot,
+  effectiveColorPattern,
+  loadUiPreferences,
+  normalizeUiPreferences,
+  saveUiPreferences,
+} from "@/lib/preferences";
+import {
+  FALLBACK_SYSTEM_FONTS,
+  fontFamilies,
+  normalizeSystemFonts,
+  type SystemFont,
+} from "@/lib/system-fonts";
 import { searchContextForActiveTab, searchResultKey } from "@/lib/search";
 import { moveHunk, type Hunk } from "@/lib/textMerge";
 import { WorkspaceTabs } from "@/components/WorkspaceTabs";
@@ -121,18 +131,22 @@ export function App() {
   const [preview, setPreview] = useState<Partial<Record<Side, EntryPreview>>>({});
   const [message, setMessage] = useState("Open a JAR, ZIP, or folder on each side.");
   const [treeFilter, setTreeFilter] = useState<TreeFilter>("diff");
-  const [engine, setEngine] = useState<Engine>(DEFAULT_ENGINE);
   const [preferences, setPreferences] = useState(loadUiPreferences);
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() =>
+    window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? true,
+  );
+  const [systemFonts, setSystemFonts] = useState<SystemFont[]>(FALLBACK_SYSTEM_FONTS);
+  const [fontStatus, setFontStatus] = useState<"idle" | "loading" | "ready" | "fallback">("idle");
   const [query, setQuery] = useState("");
-  const [includeSourceSearch, setIncludeSourceSearch] = useState(preferences.search.includeSourceByDefault);
+  const [includeSourceSearch, setIncludeSourceSearch] = useState(
+    preferences.misc.search.includeSourceByDefault,
+  );
   const [searchPaths, setSearchPaths] = useState<Set<string>>();
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [selectedSearchResult, setSelectedSearchResult] = useState<SearchResult>();
   const [mode, setMode] = useState<Mode>("compare");
   const [view, setView] = useState<"splash" | "workspace">("splash");
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
-  const [backupEnabled, setBackupEnabled] = useState(false);
-  const [ignoreTrimWhitespace, setIgnoreTrimWhitespace] = useState(true);
   const [viewMode, setViewMode] = useState<ViewMode>("source");
   const [stagedTarget, setStagedTarget] = useState<Side>();
   const [stagedEntries, setStagedEntries] = useState<Record<string, StagedEntry>>({});
@@ -168,12 +182,25 @@ export function App() {
   const handleEditorMount = useCallback<OnMount>((editor, monaco) => { editorRef.current = editor; monacoRef.current = monaco; }, []);
   const handleDiffMount = useCallback<DiffOnMount>((editor, monaco) => { diffEditorRef.current = editor; monacoRef.current = monaco; }, []);
   useEffect(() => {
-    saveUiPreferences(preferences);
-    if (appShellRef.current) applyPreferencesToRoot(appShellRef.current, preferences);
-  }, [preferences, view]);
+    const normalized = normalizeUiPreferences(preferences, fontFamilies(systemFonts));
+    if (normalized !== preferences && JSON.stringify(normalized) !== JSON.stringify(preferences)) {
+      setPreferences(normalized);
+      return;
+    }
+    saveUiPreferences(normalized);
+    if (appShellRef.current) applyPreferencesToRoot(appShellRef.current, normalized, systemPrefersDark);
+  }, [preferences, systemFonts, systemPrefersDark, view]);
   useEffect(() => {
     viewRef.current = view;
   }, [view]);
+  useEffect(() => {
+    const query = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!query) return;
+    const updateSystemPreference = () => setSystemPrefersDark(query.matches);
+    updateSystemPreference();
+    query.addEventListener("change", updateSystemPreference);
+    return () => query.removeEventListener("change", updateSystemPreference);
+  }, []);
   useEffect(() => {
     const updateLastFocusKind = (event: FocusEvent) => {
       lastFocusKindRef.current = classifyFocusTarget(event.target);
@@ -182,8 +209,28 @@ export function App() {
     return () => document.removeEventListener("focusin", updateLastFocusKind);
   }, []);
   useEffect(() => {
-    setIncludeSourceSearch(preferences.search.includeSourceByDefault);
-  }, [preferences.search.includeSourceByDefault]);
+    setIncludeSourceSearch(preferences.misc.search.includeSourceByDefault);
+  }, [preferences.misc.search.includeSourceByDefault]);
+  useEffect(() => {
+    invoke("set_engine", { engine: preferences.misc.decompiler.engine }).catch((error) => {
+      setMessage(error instanceof Error ? error.message : String(error));
+    });
+    if (selected) {
+      void inspect(selected, true);
+    }
+  }, [preferences.misc.decompiler.engine]);
+  const loadSystemFonts = useCallback(async () => {
+    if (fontStatus === "loading" || fontStatus === "ready") return;
+    setFontStatus("loading");
+    try {
+      const fonts = normalizeSystemFonts(await invoke<SystemFont[]>("list_system_fonts"));
+      setSystemFonts(fonts);
+      setFontStatus("ready");
+    } catch {
+      setSystemFonts(FALLBACK_SYSTEM_FONTS);
+      setFontStatus("fallback");
+    }
+  }, [fontStatus]);
 
   const updateShortcutDialogOpen = useCallback((next: boolean | ((current: boolean) => boolean)) => {
     const resolved = typeof next === "function" ? next(shortcutDialogOpenRef.current) : next;
@@ -562,12 +609,6 @@ export function App() {
     } catch (error) {
       setMessage(String(error));
     }
-  }
-
-  async function changeEngine(next: Engine) {
-    await invoke("set_engine", { engine: next });
-    setEngine(next);
-    if (selected) await inspect(selected, true);
   }
 
   function pickMode(next: Mode) {
@@ -976,6 +1017,12 @@ export function App() {
     mode === "compare" &&
     archives.left?.metadata.sourceKind === "file" &&
     archives.right?.metadata.sourceKind === "file";
+  const backupEnabled = preferences.misc.save.backupEnabled;
+  const ignoreTrimWhitespace = preferences.misc.decompiler.ignoreTrimWhitespace;
+  const activeColorPattern = effectiveColorPattern(
+    preferences.appearance.colorPattern,
+    systemPrefersDark,
+  );
 
   // Per-hunk merge (Take all / Move hunk, editable diff) applies to ANY compare
   // where both sides show the same entry as editable text — standalone plain
@@ -1137,7 +1184,7 @@ export function App() {
         onPickMode={pickMode}
         onOpenEntry={openEntry}
         onClear={clearRecent}
-        motion={preferences.appearance.motion}
+        motion="standard"
       />
     );
   }
@@ -1194,7 +1241,7 @@ export function App() {
           />
           <SearchResultsPanel
             results={searchResults}
-            grouping={preferences.search.resultGrouping}
+            grouping={preferences.misc.search.resultGrouping}
             onInspect={inspectSearchResult}
           />
         </aside>
@@ -1247,6 +1294,7 @@ export function App() {
                 selected={selected}
                 preview={preview}
                 preferences={preferences}
+                effectiveColorPattern={activeColorPattern}
                 ignoreTrimWhitespace={ignoreTrimWhitespace}
                 onCopy={(from, to) => void copy(from, to)}
                 onEditorMount={handleEditorMount}
@@ -1267,14 +1315,11 @@ export function App() {
         <ConfigDrawer
           open={drawerOpen}
           mode={mode}
-          engine={engine}
-          ignoreTrimWhitespace={ignoreTrimWhitespace}
-          backupEnabled={backupEnabled}
           preferences={preferences}
+          systemFonts={systemFonts}
+          fontStatus={fontStatus}
+          onLoadSystemFonts={loadSystemFonts}
           onPreferencesChange={setPreferences}
-          onEngineChange={(next) => void changeEngine(next)}
-          onIgnoreWhitespaceChange={setIgnoreTrimWhitespace}
-          onBackupEnabledChange={setBackupEnabled}
           onClose={() => setDrawerOpen(false)}
         />
       </div>
