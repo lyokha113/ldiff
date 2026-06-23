@@ -19,7 +19,7 @@ export function AppearancePreferences({
   return (
     <section className="drawer-group" aria-label="Appearance preferences">
       <span className="zone-label">Appearance</span>
-      <div className="theme-grid">
+      <div className="appearance-pattern-grid">
         {patterns.map((pattern) => (
           <Button
             key={pattern.id}

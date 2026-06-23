@@ -51,6 +51,9 @@ describe("ConfigDrawer", () => {
   it("changes Appearance color pattern", async () => {
     const props = setup();
 
+    const appearancePanel = screen.getByRole("region", { name: "Appearance preferences" });
+    expect(appearancePanel.querySelector(".appearance-pattern-grid")).toBeInTheDocument();
+
     await userEvent.click(screen.getByRole("button", { name: "Light" }));
 
     expect(props.onPreferencesChange).toHaveBeenCalledWith({
