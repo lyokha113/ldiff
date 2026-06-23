@@ -181,15 +181,17 @@ export function App() {
   const rightSearchDecorations = useRef<string[]>([]);
   const handleEditorMount = useCallback<OnMount>((editor, monaco) => { editorRef.current = editor; monacoRef.current = monaco; }, []);
   const handleDiffMount = useCallback<DiffOnMount>((editor, monaco) => { diffEditorRef.current = editor; monacoRef.current = monaco; }, []);
+  const availableFontFamilies =
+    fontStatus === "ready" ? fontFamilies(systemFonts) : undefined;
   useEffect(() => {
-    const normalized = normalizeUiPreferences(preferences, fontFamilies(systemFonts));
+    const normalized = normalizeUiPreferences(preferences, availableFontFamilies);
     if (normalized !== preferences && JSON.stringify(normalized) !== JSON.stringify(preferences)) {
       setPreferences(normalized);
       return;
     }
     saveUiPreferences(normalized);
     if (appShellRef.current) applyPreferencesToRoot(appShellRef.current, normalized, systemPrefersDark);
-  }, [preferences, systemFonts, systemPrefersDark, view]);
+  }, [preferences, availableFontFamilies, systemPrefersDark, view]);
   useEffect(() => {
     viewRef.current = view;
   }, [view]);

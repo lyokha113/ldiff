@@ -377,6 +377,20 @@ describe("App file-merge wiring", () => {
     expect(shell.style.getPropertyValue("--ldiff-editor-font-size")).toBe("");
   });
 
+  it("preserves a persisted installed font before fonts are loaded", async () => {
+    const user = userEvent.setup();
+    localStorage.setItem("ldiff.uiPreferences.v1", JSON.stringify({
+      editor: { fontFamily: "Menlo", fontSize: 15 },
+    }));
+
+    render(<App />);
+    await user.click(screen.getByText("Compare / Merge"));
+
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem("ldiff.uiPreferences.v1") ?? "{}").editor.fontFamily).toBe("Menlo"),
+    );
+  });
+
   it("loads installed fonts when Editor preferences open", async () => {
     const user = userEvent.setup();
 
