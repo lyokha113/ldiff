@@ -26,8 +26,10 @@ Dedicated deep-search and
 low-priority prefetch JVM workers share that cache without blocking interactive
 class navigation. The desktop view renders a hierarchical foldable file tree
 with per-node status, a multi-tab diff workspace (capped at 10 tabs with LRU
-eviction and per-tab view-mode/preview state), a Preferences drawer for appearance,
-typography, editor, search defaults, decompiler, and save options, contextual
+eviction and per-tab view-mode/preview state), a Preferences drawer organized
+into Appearance, Editor, and Misc sections, where Appearance controls
+Light/Dark/System color pattern, Editor controls Monaco-only font/display
+settings, and Misc groups Search, Decompiler, and Save defaults, contextual
 Files-index/current-diff search, and a startup splash while the sidecar warms. Nested archives
 (jar/zip/war/ear inside an archive) expand lazily through the
 `compute_nested_diff` command using the `parent!/inner` path separator, extract

@@ -161,6 +161,10 @@ files. If drag-and-drop misbehaves, launch under XWayland (`GDK_BACKEND=x11`).
    LDiff warns before saving over a signed JAR and before discarding staged
    changes.
 
+Preferences lets you switch between Light, Dark, and System appearance patterns,
+choose installed editor fonts and font size for the diff panel, and set durable
+Search, Decompiler, and Save defaults.
+
 ### Keyboard shortcuts
 
 App-level shortcuts work while the LDiff window is focused.

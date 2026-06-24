@@ -83,6 +83,37 @@ try {
   });
   await page.addInitScript(() => {
     const openedAt = Date.now();
+    let nextCallback = 1;
+    const callbacks = new Map();
+    window.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+      unregisterListener: (_event, id) => callbacks.delete(id),
+    };
+    window.__TAURI_INTERNALS__ = {
+      metadata: {
+        currentWindow: { label: "main" },
+        currentWebview: { label: "main" },
+      },
+      callbacks,
+      transformCallback(callback) {
+        const id = nextCallback++;
+        callbacks.set(id, callback);
+        return id;
+      },
+      unregisterCallback(id) {
+        callbacks.delete(id);
+      },
+      runCallback(id, payload) {
+        callbacks.get(id)?.(payload);
+      },
+      async invoke(cmd) {
+        if (cmd === "plugin:event|listen") return nextCallback++;
+        if (cmd === "plugin:event|unlisten") return undefined;
+        if (cmd === "platform_hints") return {};
+        if (cmd === "set_engine") return undefined;
+        if (cmd === "list_system_fonts") return [];
+        throw new Error(`unexpected startup render command: ${cmd}`);
+      },
+    };
     localStorage.setItem("ldiff.history", JSON.stringify([
       { id: "render-1", mode: "compare", paths: ["/fixtures/left.jar", "/fixtures/right.jar"], openedAt },
       { id: "render-2", mode: "single", paths: ["/fixtures/view.jar"], openedAt: openedAt - 60_000 },
@@ -128,6 +159,16 @@ try {
   if (preferencesBodyBox.y > preferencesHeaderBox.y + preferencesHeaderBox.height + 24) {
     throw new Error("preferences body is separated from its header by an excessive gap");
   }
+  await preferencesDrawer.getByRole("button", { name: "Appearance" }).waitFor({ timeout: 5_000 });
+  await preferencesDrawer.getByRole("button", { name: "Editor" }).waitFor({ timeout: 5_000 });
+  await preferencesDrawer.getByRole("button", { name: "Misc" }).waitFor({ timeout: 5_000 });
+  if ((await preferencesDrawer.getByRole("button", { name: "Typography" }).count()) !== 0) {
+    throw new Error("preferences still exposes top-level Typography");
+  }
+  await preferencesDrawer.getByRole("button", { name: "Misc" }).click();
+  await preferencesDrawer.getByRole("button", { name: "Search" }).waitFor({ timeout: 5_000 });
+  await preferencesDrawer.getByRole("button", { name: "Decompiler" }).waitFor({ timeout: 5_000 });
+  await preferencesDrawer.getByRole("button", { name: "Save" }).waitFor({ timeout: 5_000 });
   await page.keyboard.press(`${commandKey}+Comma`);
   await preferencesDrawer.waitFor({ state: "detached", timeout: 5_000 });
   await page.keyboard.down(commandKey);
@@ -690,6 +731,7 @@ try {
   // no second signed prompt thanks to session suppression).
   await selectAppAndStageRight();
   await mockedPage.getByRole("button", { name: "Preferences", exact: true }).click();
+  await mockedPage.getByRole("button", { name: "Misc", exact: true }).click();
   await mockedPage.getByRole("button", { name: "Save", exact: true }).click();
   const backupCheckbox = mockedPage.getByLabel("Keep one overwritten .bak on save");
   await backupCheckbox.waitFor({ timeout: 5_000 });
