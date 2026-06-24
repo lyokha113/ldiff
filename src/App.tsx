@@ -137,6 +137,7 @@ export function App() {
   );
   const [systemFonts, setSystemFonts] = useState<SystemFont[]>(FALLBACK_SYSTEM_FONTS);
   const [fontStatus, setFontStatus] = useState<"idle" | "loading" | "ready" | "fallback">("idle");
+  const engine = preferences.misc.decompiler.engine;
   const [query, setQuery] = useState("");
   const [includeSourceSearch, setIncludeSourceSearch] = useState(
     preferences.misc.search.includeSourceByDefault,
@@ -181,6 +182,7 @@ export function App() {
   const rightSearchDecorations = useRef<string[]>([]);
   const selectedRef = useRef<ComparePair | undefined>(selected);
   const inspectRef = useRef(inspect);
+  const appliedEngineRef = useRef(engine);
   const handleEditorMount = useCallback<OnMount>((editor, monaco) => { editorRef.current = editor; monacoRef.current = monaco; }, []);
   const handleDiffMount = useCallback<DiffOnMount>((editor, monaco) => { diffEditorRef.current = editor; monacoRef.current = monaco; }, []);
   const availableFontFamilies = useMemo(
@@ -223,16 +225,33 @@ export function App() {
   useEffect(() => {
     setIncludeSourceSearch(preferences.misc.search.includeSourceByDefault);
   }, [preferences.misc.search.includeSourceByDefault]);
-  const engine = preferences.misc.decompiler.engine;
   useEffect(() => {
     let cancelled = false;
-    invoke("set_engine", { engine })
+    const requestedEngine = engine;
+    const previousEngine = appliedEngineRef.current;
+    invoke("set_engine", { engine: requestedEngine })
       .then(() => {
+        appliedEngineRef.current = requestedEngine;
         const currentSelected = selectedRef.current;
         if (!cancelled && currentSelected) void inspectRef.current(currentSelected, true);
       })
       .catch((error) => {
-        if (!cancelled) setMessage(error instanceof Error ? error.message : String(error));
+        if (cancelled) return;
+        setMessage(error instanceof Error ? error.message : String(error));
+        if (requestedEngine === previousEngine) return;
+        setPreferences((current) => {
+          if (current.misc.decompiler.engine !== requestedEngine) return current;
+          return {
+            ...current,
+            misc: {
+              ...current.misc,
+              decompiler: {
+                ...current.misc.decompiler,
+                engine: previousEngine,
+              },
+            },
+          };
+        });
       });
     return () => {
       cancelled = true;

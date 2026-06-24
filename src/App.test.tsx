@@ -52,7 +52,7 @@ function entryPreview(side: "left" | "right") {
   };
 }
 
-const invoke = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
+const defaultInvoke = async (cmd: string, args?: Record<string, unknown>) => {
   switch (cmd) {
     case "platform_hints":
       return { os: "linux", sessionType: null, wayland: false, dropHint: null };
@@ -93,7 +93,8 @@ const invoke = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
     default:
       return undefined;
   }
-});
+};
+const invoke = vi.fn(defaultInvoke);
 
 // Deferred arrow: vi.mock factories are hoisted above the `invoke`/`chooseFile`
 // declarations, so reference them lazily to avoid a TDZ error at mock time.
@@ -263,6 +264,7 @@ async function openCompareWorkspace(user: ReturnType<typeof userEvent.setup>) {
 describe("App file-merge wiring", () => {
   beforeEach(() => {
     invoke.mockClear();
+    invoke.mockImplementation(defaultInvoke);
     chooseFile.mockClear();
     setOriginal.mockClear();
     setModified.mockClear();
@@ -412,6 +414,33 @@ describe("App file-merge wiring", () => {
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("list_system_fonts"));
     await user.click(screen.getByLabelText("Editor font family"));
     expect(await screen.findByText(/Menlo/)).toBeInTheDocument();
+  });
+
+  it("rolls back the persisted decompiler engine when backend sync fails", async () => {
+    const user = userEvent.setup();
+    const engineError = new Error("CFR unavailable");
+    invoke.mockImplementation(async (cmd: string, args?: Record<string, unknown>) => {
+      if (cmd === "set_engine" && args?.engine === "cfr") throw engineError;
+      return undefined;
+    });
+
+    render(<App />);
+    await user.click(screen.getByText("Compare / Merge"));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("set_engine", { engine: "vineflower" }));
+
+    await user.click(screen.getByLabelText("Preferences"));
+    await user.click(screen.getByRole("button", { name: "Misc" }));
+    await user.click(screen.getByRole("button", { name: "Decompiler" }));
+    fireEvent.keyDown(screen.getByLabelText("Decompiler engine"), { key: "ArrowDown" });
+    fireEvent.click(await screen.findByRole("option", { name: "CFR" }));
+
+    await screen.findByText("CFR unavailable");
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem("ldiff.uiPreferences.v1") ?? "{}").misc.decompiler.engine).toBe(
+        "vineflower",
+      ),
+    );
+    expect(screen.getByLabelText("Decompiler engine")).toHaveTextContent("Vineflower");
   });
 
   it("runs Files index search with typed backend options on both compare sides", async () => {
