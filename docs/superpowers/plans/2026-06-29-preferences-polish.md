@@ -231,6 +231,12 @@ to:
         Monaco minimap
 ```
 
+Also add the stable minimap preference hook to the containing label:
+
+```tsx
+      <label className="check-label editor-minimap-toggle">
+```
+
 - [ ] **Step 4: Add Misc segmented button class**
 
 In `src/components/preferences/MiscPreferences.tsx`, add:

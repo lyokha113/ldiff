@@ -101,7 +101,7 @@ describe("ConfigDrawer", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Editor" }));
     expect(screen.getByLabelText("Editor font family")).toHaveClass("editor-font-select-trigger");
-    expect(screen.getByText("Monaco minimap").closest("label")).toHaveClass("check-label");
+    expect(screen.getByText("Monaco minimap").closest("label")).toHaveClass("editor-minimap-toggle");
 
     await userEvent.click(screen.getByRole("button", { name: "Misc" }));
     const segmented = screen.getByRole("group", { name: "Misc preference panels" });
