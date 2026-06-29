@@ -252,4 +252,20 @@ describe("UI preferences persistence", () => {
     expect(root.style.getPropertyValue("--font-mono")).toBe("");
     expect(root.style.getPropertyValue("--ldiff-editor-font-size")).toBe("");
   });
+
+  it("applies light appearance tokens with distinct drawer-safe surfaces", () => {
+    const root = document.createElement("div");
+
+    applyPreferencesToRoot(
+      root,
+      { ...DEFAULT_UI_PREFERENCES, appearance: { colorPattern: "light" } },
+      false,
+    );
+
+    expect(root.dataset.effectiveColorPattern).toBe("light");
+    expect(root.style.getPropertyValue("--ink-0")).not.toBe(root.style.getPropertyValue("--ink-1"));
+    expect(root.style.getPropertyValue("--ink-1")).not.toBe(root.style.getPropertyValue("--ink-2"));
+    expect(root.style.getPropertyValue("--line")).not.toBe("");
+    expect(root.style.getPropertyValue("--text-0")).not.toBe(root.style.getPropertyValue("--text-2"));
+  });
 });

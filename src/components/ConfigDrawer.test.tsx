@@ -54,6 +54,12 @@ describe("ConfigDrawer", () => {
     expect(body?.querySelector(".preferences-content")).toBeInTheDocument();
   });
 
+  it("requests system fonts when Preferences opens in the idle state", () => {
+    const props = setup({ fontStatus: "idle" });
+
+    expect(props.onLoadSystemFonts).toHaveBeenCalledTimes(1);
+  });
+
   it("renders only Appearance, Editor, and Misc as top-level sections", () => {
     setup();
 
@@ -79,6 +85,28 @@ describe("ConfigDrawer", () => {
       ...DEFAULT_UI_PREFERENCES,
       appearance: { colorPattern: "light" },
     });
+  });
+
+  it("keeps Appearance, Editor, and Misc controls marked for overflow-safe layout", async () => {
+    setup({
+      systemFonts: [
+        { family: "A Very Long Installed Developer Font Family Name That Should Not Overflow", monospaceLikely: true },
+        ...FALLBACK_SYSTEM_FONTS,
+      ],
+    });
+
+    const appearancePanel = screen.getByRole("region", { name: "Appearance preferences" });
+    expect(appearancePanel.querySelector(".appearance-pattern-grid")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "System" })).toHaveClass("preference-choice");
+
+    await userEvent.click(screen.getByRole("button", { name: "Editor" }));
+    expect(screen.getByLabelText("Editor font family")).toHaveClass("editor-font-select-trigger");
+    expect(screen.getByText("Monaco minimap")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Misc" }));
+    const segmented = screen.getByRole("group", { name: "Misc preference panels" });
+    expect(segmented).toHaveClass("segmented-control");
+    expect(within(segmented).getByRole("button", { name: "Decompiler" })).toHaveClass("segmented-control__button");
   });
 
   it("loads system fonts when Editor is opened and changes editor font size", async () => {
