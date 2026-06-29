@@ -416,7 +416,7 @@ Run:
 
 ```bash
 rtk npm test -- src/components/ConfigDrawer.test.tsx src/lib/preferences.test.ts
-rtk npm run verify:frontend
+rtk npm run verify:frontend-render
 ```
 
 Expected: PASS.
@@ -984,7 +984,7 @@ Run:
 
 ```bash
 rtk npm test -- src/components/DiffView.test.tsx
-rtk npm run verify:frontend
+rtk npm run verify:frontend-render
 ```
 
 Expected: PASS.
@@ -1092,7 +1092,7 @@ After the verifier opens/selects a changed diff entry and the DiffEditor is visi
 Run:
 
 ```bash
-rtk npm run verify:frontend
+rtk npm run verify:frontend-render
 ```
 
 Expected: PASS.
@@ -1126,7 +1126,7 @@ Expected: PASS.
 Run:
 
 ```bash
-rtk npm run verify:frontend
+rtk npm run verify:frontend-render
 ```
 
 Expected: PASS.
