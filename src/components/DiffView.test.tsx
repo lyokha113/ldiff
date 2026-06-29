@@ -1,4 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import type * as React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { DiffView } from "@/components/DiffView";
@@ -21,25 +23,38 @@ const classPair: ComparePair = {
   right: { path: "A.class", kind: "class" },
 };
 
+type DiffNavigatorTestProps = {
+  current: number;
+  total: number;
+  canGoPrevious: boolean;
+  canGoNext: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
+};
+
+// Task 6 must move diffNavigator into DiffViewProps; keep this helper tied to
+// the current component props while documenting the future contract under test.
+type FutureDiffViewTestProps = React.ComponentProps<typeof DiffView> & {
+  diffNavigator: DiffNavigatorTestProps;
+};
+
+type RenderDiffViewOverrides = Partial<
+  Pick<
+    FutureDiffViewTestProps,
+    | "editable"
+    | "editValue"
+    | "fileMerge"
+    | "hunkMerge"
+    | "ignoreTrimWhitespace"
+    | "diffNavigator"
+  >
+>;
+
 function renderDiffView(
   mode: Mode,
   preferences: UiPreferences,
   effectiveColorPattern: EffectiveColorPattern = "dark",
-  overrides: Partial<{
-    editable: boolean;
-    editValue: string;
-    fileMerge: boolean;
-    hunkMerge: boolean;
-    ignoreTrimWhitespace: boolean;
-    diffNavigator: {
-      current: number;
-      total: number;
-      canGoPrevious: boolean;
-      canGoNext: boolean;
-      onPrevious: () => void;
-      onNext: () => void;
-    };
-  }> = {},
+  overrides: RenderDiffViewOverrides = {},
 ) {
   const props = {
     mode,
@@ -69,7 +84,7 @@ function renderDiffView(
       onNext: vi.fn(),
     },
     ...overrides,
-  };
+  } satisfies FutureDiffViewTestProps;
 
   render(
     <TooltipProvider>
@@ -159,7 +174,8 @@ describe("DiffView", () => {
     expect(screen.queryByRole("group", { name: "Diff view mode" })).not.toBeInTheDocument();
   });
 
-  it("renders the compact diff navigator in compare mode", () => {
+  it("renders the compact diff navigator in compare mode", async () => {
+    const user = userEvent.setup();
     const onPrevious = vi.fn();
     const onNext = vi.fn();
 
@@ -177,8 +193,8 @@ describe("DiffView", () => {
     const navigator = screen.getByRole("group", { name: "Diff navigator" });
     expect(within(navigator).getByText("3/12")).toBeInTheDocument();
 
-    fireEvent.click(within(navigator).getByRole("button", { name: "Previous diff" }));
-    fireEvent.click(within(navigator).getByRole("button", { name: "Next diff" }));
+    await user.click(within(navigator).getByRole("button", { name: "Previous diff" }));
+    await user.click(within(navigator).getByRole("button", { name: "Next diff" }));
 
     expect(onPrevious).toHaveBeenCalledTimes(1);
     expect(onNext).toHaveBeenCalledTimes(1);
@@ -194,6 +210,7 @@ describe("DiffView", () => {
   });
 
   it("hides the diff navigator in single mode", () => {
+    // This asserts the final Task 6 behavior once DiffView consumes diffNavigator.
     renderDiffView("single", DEFAULT_UI_PREFERENCES, "dark", {
       diffNavigator: {
         current: 3,
