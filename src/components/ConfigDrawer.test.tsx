@@ -118,11 +118,10 @@ describe("ConfigDrawer", () => {
     expect(within(segmented).getByRole("button", { name: "Decompiler" })).toHaveClass("segmented-control__button");
   });
 
-  it("loads system fonts when Editor is opened and changes editor font size", async () => {
+  it("changes editor font size from the Editor section", async () => {
     const props = setup();
 
     await userEvent.click(screen.getByRole("button", { name: "Editor" }));
-    expect(props.onLoadSystemFonts).toHaveBeenCalled();
     await userEvent.click(screen.getByLabelText("Editor font size"));
     await userEvent.click(within(screen.getByRole("listbox")).getByText("16"));
 
@@ -137,6 +136,15 @@ describe("ConfigDrawer", () => {
     await userEvent.click(screen.getByRole("button", { name: "Editor" }));
 
     expect(screen.getByText("Using bundled fallback fonts")).toBeInTheDocument();
+  });
+
+  it("does not retry system font loading when Editor opens in fallback state", async () => {
+    const props = setup({ fontStatus: "fallback" });
+
+    await userEvent.click(screen.getByRole("button", { name: "Editor" }));
+
+    expect(screen.getByLabelText("Editor font family")).toBeInTheDocument();
+    expect(props.onLoadSystemFonts).not.toHaveBeenCalled();
   });
 
   it("renders Misc segmented controls and keeps Save visible in single mode", async () => {

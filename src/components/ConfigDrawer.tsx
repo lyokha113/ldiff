@@ -69,7 +69,7 @@ export function ConfigDrawer({
               aria-pressed={section === item.id}
               onClick={() => {
                 setSection(item.id);
-                if (item.id === "editor") onLoadSystemFonts();
+                if (item.id === "editor" && fontStatus === "idle") onLoadSystemFonts();
               }}
             >
               {item.label}
