@@ -557,7 +557,7 @@ main.app-shell {
 .command-group--save { min-width: 0; }
 .pending-summary { max-width: 11rem; margin-right: 0.25rem; overflow: hidden; color: var(--text-2); font-family: var(--font-mono); font-size: 0.64rem; text-overflow: ellipsis; white-space: nowrap; }
 .command-group--save > [data-slot="button"][data-variant="default"] { background: var(--brass); color: var(--ink-0); box-shadow: inset 0 1px rgba(255,255,255,0.24); }
-.command-group--save > [data-slot="button"][data-variant="default"]:hover { background: color-mix(in oklab, var(--brass) 88%, white); }
+.command-group--save > [data-slot="button"][data-variant="default"]:hover { background: var(--brass-dim); }
 
 /* ---------- source rail ---------- */
 .source-rail {

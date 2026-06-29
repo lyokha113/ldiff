@@ -335,5 +335,11 @@ describe("UI preferences persistence", () => {
     expect(
       contrastRatio(root.style.getPropertyValue("--brass"), root.style.getPropertyValue("--ink-0")),
     ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(
+        root.style.getPropertyValue("--brass-dim"),
+        root.style.getPropertyValue("--ink-0"),
+      ),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });
