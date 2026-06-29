@@ -285,6 +285,9 @@ describe("UI preferences persistence", () => {
     expect(ink0).not.toBe(ink1);
     expect(ink0).not.toBe(ink2);
     expect(ink1).not.toBe(ink2);
+    expect(popover).not.toBe(background);
+    expect(input).not.toBe(background);
+    expect(popover).not.toBe(input);
     expect(text0).not.toBe(text2);
   });
 });
