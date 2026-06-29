@@ -31,6 +31,14 @@ function renderDiffView(
     fileMerge: boolean;
     hunkMerge: boolean;
     ignoreTrimWhitespace: boolean;
+    diffNavigator: {
+      current: number;
+      total: number;
+      canGoPrevious: boolean;
+      canGoNext: boolean;
+      onPrevious: () => void;
+      onNext: () => void;
+    };
   }> = {},
 ) {
   const props = {
@@ -52,6 +60,14 @@ function renderDiffView(
     onDiffEditEither: vi.fn(),
     onTakeAll: vi.fn(),
     onMoveHunk: vi.fn(),
+    diffNavigator: {
+      current: 0,
+      total: 0,
+      canGoPrevious: false,
+      canGoNext: false,
+      onPrevious: vi.fn(),
+      onNext: vi.fn(),
+    },
     ...overrides,
   };
 
@@ -114,10 +130,82 @@ describe("DiffView", () => {
     });
   });
 
+  it("passes explicit Monaco minimap options when enabled", () => {
+    const preferences: UiPreferences = {
+      ...DEFAULT_UI_PREFERENCES,
+      editor: {
+        ...DEFAULT_UI_PREFERENCES.editor,
+        minimap: "on",
+      },
+    };
+
+    renderDiffView("compare", preferences);
+
+    expect(diffEditorMock.mock.calls[0]?.[0]).toMatchObject({
+      options: {
+        minimap: {
+          enabled: true,
+          side: "right",
+          size: "proportional",
+          showSlider: "mouseover",
+        },
+      },
+    });
+  });
+
   it("renders the diff editor in compare mode", () => {
     renderDiffView("compare", DEFAULT_UI_PREFERENCES);
     expect(screen.getByTestId("diff-editor")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Diff view mode" })).not.toBeInTheDocument();
+  });
+
+  it("renders the compact diff navigator in compare mode", () => {
+    const onPrevious = vi.fn();
+    const onNext = vi.fn();
+
+    renderDiffView("compare", DEFAULT_UI_PREFERENCES, "dark", {
+      diffNavigator: {
+        current: 3,
+        total: 12,
+        canGoPrevious: true,
+        canGoNext: true,
+        onPrevious,
+        onNext,
+      },
+    });
+
+    const navigator = screen.getByRole("group", { name: "Diff navigator" });
+    expect(within(navigator).getByText("3/12")).toBeInTheDocument();
+
+    fireEvent.click(within(navigator).getByRole("button", { name: "Previous diff" }));
+    fireEvent.click(within(navigator).getByRole("button", { name: "Next diff" }));
+
+    expect(onPrevious).toHaveBeenCalledTimes(1);
+    expect(onNext).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the diff navigator when no diff blocks exist", () => {
+    renderDiffView("compare", DEFAULT_UI_PREFERENCES);
+
+    const navigator = screen.getByRole("group", { name: "Diff navigator" });
+    expect(within(navigator).getByText("0/0")).toBeInTheDocument();
+    expect(within(navigator).getByRole("button", { name: "Previous diff" })).toBeDisabled();
+    expect(within(navigator).getByRole("button", { name: "Next diff" })).toBeDisabled();
+  });
+
+  it("hides the diff navigator in single mode", () => {
+    renderDiffView("single", DEFAULT_UI_PREFERENCES, "dark", {
+      diffNavigator: {
+        current: 3,
+        total: 12,
+        canGoPrevious: true,
+        canGoNext: true,
+        onPrevious: vi.fn(),
+        onNext: vi.fn(),
+      },
+    });
+
+    expect(screen.queryByRole("group", { name: "Diff navigator" })).not.toBeInTheDocument();
   });
 
   it("hides compare-only actions in View mode", () => {
