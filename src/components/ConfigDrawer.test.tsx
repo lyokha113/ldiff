@@ -87,7 +87,15 @@ describe("ConfigDrawer", () => {
     });
   });
 
-  it("keeps Appearance, Editor, and Misc controls marked for overflow-safe layout", async () => {
+  it("marks Appearance controls for overflow-safe layout", () => {
+    setup();
+
+    const appearancePanel = screen.getByRole("region", { name: "Appearance preferences" });
+    expect(appearancePanel.querySelector(".appearance-pattern-grid")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "System" })).toHaveClass("preference-choice");
+  });
+
+  it("marks Editor controls for overflow-safe layout", async () => {
     setup({
       systemFonts: [
         { family: "A Very Long Installed Developer Font Family Name That Should Not Overflow", monospaceLikely: true },
@@ -95,13 +103,14 @@ describe("ConfigDrawer", () => {
       ],
     });
 
-    const appearancePanel = screen.getByRole("region", { name: "Appearance preferences" });
-    expect(appearancePanel.querySelector(".appearance-pattern-grid")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "System" })).toHaveClass("preference-choice");
-
     await userEvent.click(screen.getByRole("button", { name: "Editor" }));
     expect(screen.getByLabelText("Editor font family")).toHaveClass("editor-font-select-trigger");
+    expect(screen.getByText("Monaco minimap")).toBeInTheDocument();
     expect(screen.getByText("Monaco minimap").closest("label")).toHaveClass("editor-minimap-toggle");
+  });
+
+  it("marks Misc controls for overflow-safe layout", async () => {
+    setup();
 
     await userEvent.click(screen.getByRole("button", { name: "Misc" }));
     const segmented = screen.getByRole("group", { name: "Misc preference panels" });

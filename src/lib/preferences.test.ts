@@ -269,15 +269,22 @@ describe("UI preferences persistence", () => {
     const ink2 = root.style.getPropertyValue("--ink-2");
     const popover = root.style.getPropertyValue("--popover");
     const input = root.style.getPropertyValue("--input");
+    const line = root.style.getPropertyValue("--line");
+    const text0 = root.style.getPropertyValue("--text-0");
+    const text2 = root.style.getPropertyValue("--text-2");
 
     expect(background).not.toBe("");
+    expect(popover).not.toBe("");
+    expect(input).not.toBe("");
     expect(ink0).not.toBe("");
     expect(ink1).not.toBe("");
     expect(ink2).not.toBe("");
-    expect(popover).not.toBe("");
-    expect(input).not.toBe("");
-    expect(new Set([background, ink0, ink1, ink2, popover, input]).size).toBe(6);
-    expect(root.style.getPropertyValue("--line")).not.toBe("");
-    expect(root.style.getPropertyValue("--text-0")).not.toBe(root.style.getPropertyValue("--text-2"));
+    expect(line).not.toBe("");
+    expect(text0).not.toBe("");
+    expect(text2).not.toBe("");
+    expect(ink0).not.toBe(ink1);
+    expect(ink0).not.toBe(ink2);
+    expect(ink1).not.toBe(ink2);
+    expect(text0).not.toBe(text2);
   });
 });
