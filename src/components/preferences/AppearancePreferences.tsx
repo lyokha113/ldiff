@@ -24,6 +24,7 @@ export function AppearancePreferences({
           <Button
             key={pattern.id}
             type="button"
+            className="preference-choice appearance-pattern-grid__button"
             variant={preferences.appearance.colorPattern === pattern.id ? "secondary" : "outline"}
             size="sm"
             aria-pressed={preferences.appearance.colorPattern === pattern.id}

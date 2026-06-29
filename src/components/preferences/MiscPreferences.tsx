@@ -42,6 +42,7 @@ export function MiscPreferences({
           <Button
             key={item.id}
             type="button"
+            className="segmented-control__button"
             variant={panel === item.id ? "secondary" : "outline"}
             size="sm"
             aria-pressed={panel === item.id}

@@ -43,11 +43,13 @@ export function EditorPreferences({
         value={preferences.editor.fontFamily}
         onValueChange={(fontFamily) => updateEditor({ ...preferences.editor, fontFamily })}
       >
-        <SelectTrigger aria-label="Editor font family"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="editor-font-select-trigger" aria-label="Editor font family">
+          <SelectValue />
+        </SelectTrigger>
         <SelectContent>
           <SelectGroup>
             {systemFonts.map((font) => (
-              <SelectItem key={font.family} value={font.family}>
+              <SelectItem key={font.family} value={font.family} className="editor-font-select-item">
                 {font.family}{font.monospaceLikely ? " · mono" : ""}
               </SelectItem>
             ))}
@@ -90,7 +92,7 @@ export function EditorPreferences({
         />
         Line numbers
       </label>
-      <label className="check-label">
+      <label className="check-label editor-minimap-toggle">
         <Checkbox
           checked={preferences.editor.minimap === "on"}
           onCheckedChange={(checked) => updateEditor({
@@ -98,7 +100,7 @@ export function EditorPreferences({
             minimap: toggleValue(checked === true),
           })}
         />
-        Minimap
+        Monaco minimap
       </label>
     </section>
   );
