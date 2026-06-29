@@ -14,6 +14,32 @@ import {
   type UiPreferences,
 } from "@/lib/preferences";
 
+function hexChannelToLinear(channel: string): number {
+  const value = Number.parseInt(channel, 16) / 255;
+  return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance(hexColor: string): number {
+  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hexColor);
+  if (!match) {
+    throw new Error(`Expected a six-digit hex color, received ${hexColor}`);
+  }
+  const [, red, green, blue] = match;
+  return (
+    0.2126 * hexChannelToLinear(red) +
+    0.7152 * hexChannelToLinear(green) +
+    0.0722 * hexChannelToLinear(blue)
+  );
+}
+
+function contrastRatio(firstColor: string, secondColor: string): number {
+  const firstLuminance = relativeLuminance(firstColor);
+  const secondLuminance = relativeLuminance(secondColor);
+  const lighter = Math.max(firstLuminance, secondLuminance);
+  const darker = Math.min(firstLuminance, secondLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 describe("UI preferences persistence", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -289,5 +315,25 @@ describe("UI preferences persistence", () => {
     expect(input).not.toBe(background);
     expect(popover).not.toBe(input);
     expect(text0).not.toBe(text2);
+  });
+
+  it("keeps light accent tokens readable for small text use", () => {
+    const root = document.createElement("div");
+
+    applyPreferencesToRoot(
+      root,
+      { ...DEFAULT_UI_PREFERENCES, appearance: { colorPattern: "light" } },
+      false,
+    );
+
+    expect(
+      contrastRatio(
+        root.style.getPropertyValue("--primary"),
+        root.style.getPropertyValue("--primary-foreground"),
+      ),
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(root.style.getPropertyValue("--brass"), root.style.getPropertyValue("--ink-0")),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });
