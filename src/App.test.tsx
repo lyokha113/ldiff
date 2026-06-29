@@ -164,6 +164,8 @@ const RIGHT_TEXT = '{\n  "v": 2\n}\n';
 const buffers = { left: LEFT_TEXT, right: RIGHT_TEXT };
 const setOriginal = vi.fn((v: string) => { buffers.left = v; });
 const setModified = vi.fn((v: string) => { buffers.right = v; });
+const revealOriginal = vi.fn();
+const revealModified = vi.fn();
 
 // Line changes the fake diff editor reports. Default: a modification on line 2
 // of both sides. Tests can override before render to exercise other hunk shapes
@@ -175,29 +177,35 @@ const MODIFY_LINE_2 = {
   modifiedEndLineNumber: 2,
 };
 let lineChanges: Array<Record<string, number>> = [MODIFY_LINE_2];
+let diffEditorMounted = false;
 
 function makeFakeDiffEditor() {
   // App's search-highlight effect calls deltaDecorations/revealLineInCenter on
   // each sub-editor whenever preview changes, so the fakes must expose them.
-  const subEditor = (buf: "left" | "right", set: typeof setOriginal) => ({
+  const subEditor = (buf: "left" | "right", set: typeof setOriginal, reveal: typeof revealOriginal) => ({
     getValue: () => buffers[buf],
     setValue: set,
     onDidBlurEditorText: vi.fn(() => ({ dispose: vi.fn() })),
+    onDidChangeCursorPosition: vi.fn(() => ({ dispose: vi.fn() })),
+    onDidFocusEditorText: vi.fn(() => ({ dispose: vi.fn() })),
+    setPosition: vi.fn(),
     getPosition: () => ({ lineNumber: 2 }),
     getModel: () => ({
+      getLineCount: () => buffers[buf].split("\n").length,
       findMatches: vi.fn(() => [
         { range: { startLineNumber: 2 } },
       ]),
     }),
     deltaDecorations: vi.fn(() => []),
-    revealLineInCenter: vi.fn(),
+    revealLineInCenter: reveal,
   });
-  const original = subEditor("left", setOriginal);
-  const modified = subEditor("right", setModified);
+  const original = subEditor("left", setOriginal, revealOriginal);
+  const modified = subEditor("right", setModified, revealModified);
   return {
     getOriginalEditor: () => original,
     getModifiedEditor: () => modified,
     getLineChanges: () => lineChanges,
+    onDidUpdateDiff: vi.fn(() => ({ dispose: vi.fn() })),
     onDidDispose: vi.fn(() => ({ dispose: vi.fn() })),
     setModel: vi.fn(),
   };
@@ -214,7 +222,10 @@ vi.mock("@monaco-editor/react", () => ({
   // DiffEditor fires onMount with a fake editor + monaco on render so App's
   // handleDiffMount captures it into diffEditorRef.
   DiffEditor: ({ onMount }: { onMount?: (e: unknown, m: unknown) => void }) => {
-    onMount?.(makeFakeDiffEditor(), {});
+    if (!diffEditorMounted) {
+      diffEditorMounted = true;
+      queueMicrotask(() => onMount?.(makeFakeDiffEditor(), {}));
+    }
     return <div className="monaco-editor" data-testid="diff-editor"><span data-testid="diff-editor-cell" /></div>;
   },
 }));
@@ -268,9 +279,12 @@ describe("App file-merge wiring", () => {
     chooseFile.mockClear();
     setOriginal.mockClear();
     setModified.mockClear();
+    revealOriginal.mockClear();
+    revealModified.mockClear();
     buffers.left = LEFT_TEXT;
     buffers.right = RIGHT_TEXT;
     lineChanges = [MODIFY_LINE_2];
+    diffEditorMounted = false;
     summarySourceKind = "file";
     deepSearchBlock = undefined;
     deepSearchError = undefined;
@@ -346,6 +360,29 @@ describe("App file-merge wiring", () => {
 
     expect(screen.queryByRole("group", { name: "Actions into left pane" })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Actions into right pane" })).not.toBeInTheDocument();
+  });
+
+  it("wires diff navigator state from Monaco line changes and reveals the next block", async () => {
+    const user = userEvent.setup();
+    lineChanges = [
+      MODIFY_LINE_2,
+      {
+        originalStartLineNumber: 3,
+        originalEndLineNumber: 3,
+        modifiedStartLineNumber: 3,
+        modifiedEndLineNumber: 3,
+      },
+    ];
+    await driveIntoFileCompare(user);
+
+    const navigator = await screen.findByRole("group", { name: "Diff block navigation" });
+    expect(navigator).toHaveTextContent("1/2");
+
+    revealModified.mockClear();
+    await user.click(screen.getByRole("button", { name: "Next diff block" }));
+
+    await waitFor(() => expect(revealModified).toHaveBeenCalledWith(3));
+    expect(navigator).toHaveTextContent("2/2");
   });
 
   it("Take all into right stages the left buffer onto the right", async () => {

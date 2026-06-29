@@ -95,6 +95,13 @@ const stripSidePrefix = (key: string) => key.replace(SIDE_PREFIX_RE, "");
 // Keep in sync with EDITABLE_EXTENSIONS in crates/ldiff-core/src/edit.rs (Rust list is the authority; this list only controls the editor read-only affordance in the UI).
 const EDIT_EXTENSIONS = ["xml", "json", "ini", "txt", "properties", "yaml", "yml", "md", "csv", "cfg", "conf", "sh", "bash"];
 
+type DiffLineChange = NonNullable<ReturnType<DiffCodeEditor["getLineChanges"]>>[number];
+
+type DiffNavigatorState = {
+  currentIndex: number;
+  total: number;
+};
+
 function applySearchLineHighlight(
   editor: CodeEditor | undefined,
   monaco: MonacoApi | undefined,
@@ -119,6 +126,53 @@ function applySearchLineHighlight(
 function dropSideForPosition(mode: Mode, x: number, width: number): Side {
   if (mode === "single") return "left";
   return x < width / 2 ? "left" : "right";
+}
+
+function lineChangeRangeForSide(change: DiffLineChange, side: Side) {
+  const start =
+    side === "left"
+      ? change.originalStartLineNumber
+      : change.modifiedStartLineNumber;
+  const end =
+    side === "left"
+      ? change.originalEndLineNumber
+      : change.modifiedEndLineNumber;
+  return { start, end };
+}
+
+function revealLineForChange(change: DiffLineChange, side: Side, editor: CodeEditor) {
+  const { start, end } = lineChangeRangeForSide(change, side);
+  const modelLineCount = editor.getModel()?.getLineCount() ?? 0;
+  if (modelLineCount < 1) return undefined;
+  return Math.max(1, Math.min(start, modelLineCount));
+}
+
+function lineDistanceToChange(change: DiffLineChange, side: Side, line: number) {
+  const { start, end } = lineChangeRangeForSide(change, side);
+  const rangeStart = Math.max(1, start);
+  const rangeEnd = Math.max(rangeStart, end === 0 ? start : end);
+  if (line >= rangeStart && line <= rangeEnd) return 0;
+  if (line < rangeStart) return rangeStart - line;
+  return line - rangeEnd;
+}
+
+function currentDiffBlockIndex(
+  changes: DiffLineChange[],
+  side: Side,
+  cursorLine: number | undefined,
+) {
+  if (changes.length === 0) return -1;
+  if (cursorLine === undefined || cursorLine < 1) return 0;
+  let bestIndex = 0;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  changes.forEach((change, index) => {
+    const distance = lineDistanceToChange(change, side, cursorLine);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = index;
+    }
+  });
+  return bestIndex;
 }
 
 export function App() {
@@ -163,6 +217,10 @@ export function App() {
   const [shortcutDialogOpen, setShortcutDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"files" | string>("files");
   const [openTabs, setOpenTabs] = useState<DiffTab[]>([]);
+  const [diffNavigatorState, setDiffNavigatorState] = useState<DiffNavigatorState>({
+    currentIndex: -1,
+    total: 0,
+  });
   const appShellRef = useRef<HTMLElement>(null);
   const focusCounter = useRef(0);
   const openTabsCountRef = useRef(0);
@@ -171,6 +229,7 @@ export function App() {
   const cancelableSearchActiveRef = useRef(false);
   const editorRef = useRef<CodeEditor | undefined>(undefined);
   const diffEditorRef = useRef<DiffCodeEditor | undefined>(undefined);
+  const diffNavigatorFocusSideRef = useRef<Side>("right");
   const monacoRef = useRef<MonacoApi | undefined>(undefined);
   const actionContextRef = useRef<AppActionContext | undefined>(undefined);
   const actionHandlersRef = useRef<AppActionHandlers | undefined>(undefined);
@@ -183,8 +242,46 @@ export function App() {
   const selectedRef = useRef<ComparePair | undefined>(selected);
   const inspectRef = useRef(inspect);
   const appliedEngineRef = useRef(engine);
+  const updateDiffNavigatorState = useCallback(() => {
+    const editor = diffEditorRef.current;
+    if (mode !== "compare" || !editor) {
+      setDiffNavigatorState({ currentIndex: -1, total: 0 });
+      return;
+    }
+    const changes = editor.getLineChanges() ?? [];
+    if (changes.length === 0) {
+      setDiffNavigatorState({ currentIndex: -1, total: 0 });
+      return;
+    }
+    const side = diffNavigatorFocusSideRef.current ?? "right";
+    const focusedEditor = side === "left" ? editor.getOriginalEditor() : editor.getModifiedEditor();
+    const currentIndex = currentDiffBlockIndex(
+      changes,
+      side,
+      focusedEditor.getPosition()?.lineNumber,
+    );
+    setDiffNavigatorState({ currentIndex, total: changes.length });
+  }, [mode]);
   const handleEditorMount = useCallback<OnMount>((editor, monaco) => { editorRef.current = editor; monacoRef.current = monaco; }, []);
-  const handleDiffMount = useCallback<DiffOnMount>((editor, monaco) => { diffEditorRef.current = editor; monacoRef.current = monaco; }, []);
+  const handleDiffMount = useCallback<DiffOnMount>((editor, monaco) => {
+    diffEditorRef.current = editor;
+    monacoRef.current = monaco;
+    const original = editor.getOriginalEditor();
+    const modified = editor.getModifiedEditor();
+    const updateForSide = (side: Side) => {
+      diffNavigatorFocusSideRef.current = side;
+      updateDiffNavigatorState();
+    };
+    const disposables = [
+      editor.onDidUpdateDiff(updateDiffNavigatorState),
+      original.onDidChangeCursorPosition(() => updateForSide("left")),
+      modified.onDidChangeCursorPosition(() => updateForSide("right")),
+      original.onDidFocusEditorText(() => updateForSide("left")),
+      modified.onDidFocusEditorText(() => updateForSide("right")),
+    ];
+    updateDiffNavigatorState();
+    editor.onDidDispose(() => disposables.forEach((disposable) => disposable.dispose()));
+  }, [updateDiffNavigatorState]);
   const availableFontFamilies = useMemo(
     () => (fontStatus === "ready" ? fontFamilies(systemFonts) : undefined),
     [fontStatus, systemFonts],
@@ -473,6 +570,18 @@ export function App() {
       applySearchLineHighlight(diffEditor?.getModifiedEditor(), monacoRef.current, undefined, rightSearchDecorations);
     }
   }, [mode, preview.left?.content, preview.right?.content, selected?.path, selectedSearchResult]);
+
+  useEffect(() => {
+    updateDiffNavigatorState();
+  }, [
+    activeTab,
+    mode,
+    preview.left?.content,
+    preview.right?.content,
+    selected?.path,
+    updateDiffNavigatorState,
+    viewMode,
+  ]);
 
   useEffect(() => {
     if (activeTab === "files" || !selected) return;
@@ -865,6 +974,32 @@ export function App() {
     };
   }
 
+  function navigateDiffBlock(direction: 1 | -1) {
+    const editor = diffEditorRef.current;
+    if (mode !== "compare" || !editor) {
+      setDiffNavigatorState({ currentIndex: -1, total: 0 });
+      return;
+    }
+    const changes = editor.getLineChanges() ?? [];
+    if (changes.length === 0) {
+      setDiffNavigatorState({ currentIndex: -1, total: 0 });
+      return;
+    }
+    const side = diffNavigatorFocusSideRef.current ?? "right";
+    const targetEditor = side === "left" ? editor.getOriginalEditor() : editor.getModifiedEditor();
+    const currentIndex =
+      diffNavigatorState.currentIndex >= 0 && diffNavigatorState.currentIndex < changes.length
+        ? diffNavigatorState.currentIndex
+        : currentDiffBlockIndex(changes, side, targetEditor.getPosition()?.lineNumber);
+    const targetIndex = (currentIndex + direction + changes.length) % changes.length;
+    const targetLine = revealLineForChange(changes[targetIndex], side, targetEditor);
+    if (targetLine !== undefined) {
+      targetEditor.setPosition({ lineNumber: targetLine, column: 1 });
+      targetEditor.revealLineInCenter(targetLine);
+    }
+    setDiffNavigatorState({ currentIndex: targetIndex, total: changes.length });
+  }
+
   async function takeAllTo(target: Side) {
     if (!isTextMerge || !selected) return;
     const ed = diffEditorRef.current;
@@ -1214,6 +1349,15 @@ export function App() {
     };
   }, [dispatchRegisteredAction]);
 
+  const diffNavigator = {
+    current: diffNavigatorState.total === 0 ? 0 : diffNavigatorState.currentIndex + 1,
+    total: diffNavigatorState.total,
+    canGoPrevious: diffNavigatorState.total > 0,
+    canGoNext: diffNavigatorState.total > 0,
+    onPrevious: () => navigateDiffBlock(-1),
+    onNext: () => navigateDiffBlock(1),
+  };
+
   if (view === "splash") {
     return (
       <SplashScreen
@@ -1346,6 +1490,7 @@ export function App() {
                 onDiffEditEither={(side, content) => void stageFileSide(side, content)}
                 onTakeAll={(t) => void takeAllTo(t)}
                 onMoveHunk={(t) => void moveHunkTo(t)}
+                diffNavigator={diffNavigator}
               />
             </div>
           </div>
