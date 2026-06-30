@@ -140,6 +140,22 @@ function lineChangeRangeForSide(change: DiffLineChange, side: Side) {
   return { start, end };
 }
 
+function hasChangedLinesForSide(change: DiffLineChange, side: Side) {
+  const { start, end } = lineChangeRangeForSide(change, side);
+  return start >= 1 && end >= start;
+}
+
+function oppositeSide(side: Side): Side {
+  return side === "left" ? "right" : "left";
+}
+
+function resolveDiffNavigationSide(change: DiffLineChange, preferredSide: Side): Side {
+  if (hasChangedLinesForSide(change, preferredSide)) return preferredSide;
+  const fallbackSide = oppositeSide(preferredSide);
+  if (hasChangedLinesForSide(change, fallbackSide)) return fallbackSide;
+  return preferredSide;
+}
+
 function revealLineForChange(change: DiffLineChange, side: Side, editor: CodeEditor) {
   const { start, end } = lineChangeRangeForSide(change, side);
   const modelLineCount = editor.getModel()?.getLineCount() ?? 0;
@@ -986,13 +1002,15 @@ export function App() {
       return;
     }
     const side = diffNavigatorFocusSideRef.current ?? "right";
-    const targetEditor = side === "left" ? editor.getOriginalEditor() : editor.getModifiedEditor();
+    const focusedEditor = side === "left" ? editor.getOriginalEditor() : editor.getModifiedEditor();
     const currentIndex =
       diffNavigatorState.currentIndex >= 0 && diffNavigatorState.currentIndex < changes.length
         ? diffNavigatorState.currentIndex
-        : currentDiffBlockIndex(changes, side, targetEditor.getPosition()?.lineNumber);
+        : currentDiffBlockIndex(changes, side, focusedEditor.getPosition()?.lineNumber);
     const targetIndex = (currentIndex + direction + changes.length) % changes.length;
-    const targetLine = revealLineForChange(changes[targetIndex], side, targetEditor);
+    const targetSide = resolveDiffNavigationSide(changes[targetIndex], side);
+    const targetEditor = targetSide === "left" ? editor.getOriginalEditor() : editor.getModifiedEditor();
+    const targetLine = revealLineForChange(changes[targetIndex], targetSide, targetEditor);
     if (targetLine !== undefined) {
       targetEditor.setPosition({ lineNumber: targetLine, column: 1 });
       targetEditor.revealLineInCenter(targetLine);

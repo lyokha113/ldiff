@@ -166,6 +166,7 @@ const setOriginal = vi.fn((v: string) => { buffers.left = v; });
 const setModified = vi.fn((v: string) => { buffers.right = v; });
 const revealOriginal = vi.fn();
 const revealModified = vi.fn();
+let focusOriginalEditor: (() => void) | undefined;
 
 // Line changes the fake diff editor reports. Default: a modification on line 2
 // of both sides. Tests can override before render to exercise other hunk shapes
@@ -187,7 +188,10 @@ function makeFakeDiffEditor() {
     setValue: set,
     onDidBlurEditorText: vi.fn(() => ({ dispose: vi.fn() })),
     onDidChangeCursorPosition: vi.fn(() => ({ dispose: vi.fn() })),
-    onDidFocusEditorText: vi.fn(() => ({ dispose: vi.fn() })),
+    onDidFocusEditorText: vi.fn((handler: () => void) => {
+      if (buf === "left") focusOriginalEditor = handler;
+      return { dispose: vi.fn() };
+    }),
     setPosition: vi.fn(),
     getPosition: () => ({ lineNumber: 2 }),
     getModel: () => ({
@@ -281,6 +285,7 @@ describe("App file-merge wiring", () => {
     setModified.mockClear();
     revealOriginal.mockClear();
     revealModified.mockClear();
+    focusOriginalEditor = undefined;
     buffers.left = LEFT_TEXT;
     buffers.right = RIGHT_TEXT;
     lineChanges = [MODIFY_LINE_2];
@@ -383,6 +388,50 @@ describe("App file-merge wiring", () => {
 
     await waitFor(() => expect(revealModified).toHaveBeenCalledWith(3));
     expect(navigator).toHaveTextContent("2/2");
+  });
+
+  it("reveals the original side for a left-only deletion with default right focus", async () => {
+    const user = userEvent.setup();
+    lineChanges = [
+      {
+        originalStartLineNumber: 2,
+        originalEndLineNumber: 2,
+        modifiedStartLineNumber: 2,
+        modifiedEndLineNumber: 0,
+      },
+    ];
+    await driveIntoFileCompare(user);
+
+    await screen.findByRole("group", { name: "Diff block navigation" });
+    revealOriginal.mockClear();
+    revealModified.mockClear();
+    await user.click(screen.getByRole("button", { name: "Next diff block" }));
+
+    await waitFor(() => expect(revealOriginal).toHaveBeenCalledWith(2));
+    expect(revealModified).not.toHaveBeenCalled();
+  });
+
+  it("reveals the modified side for a right-only insertion with left focus", async () => {
+    const user = userEvent.setup();
+    lineChanges = [
+      {
+        originalStartLineNumber: 2,
+        originalEndLineNumber: 0,
+        modifiedStartLineNumber: 2,
+        modifiedEndLineNumber: 2,
+      },
+    ];
+    await driveIntoFileCompare(user);
+    await waitFor(() => expect(focusOriginalEditor).toBeDefined());
+    act(() => focusOriginalEditor?.());
+
+    await screen.findByRole("group", { name: "Diff block navigation" });
+    revealOriginal.mockClear();
+    revealModified.mockClear();
+    await user.click(screen.getByRole("button", { name: "Next diff block" }));
+
+    await waitFor(() => expect(revealModified).toHaveBeenCalledWith(2));
+    expect(revealOriginal).not.toHaveBeenCalled();
   });
 
   it("Take all into right stages the left buffer onto the right", async () => {
