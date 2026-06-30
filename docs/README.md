@@ -6,10 +6,10 @@ This directory holds the `LCDiff` design, architecture, and validation docs.
 
 - `ARCHITECTURE.md`: application shape and boundary rules.
 - `GLOSSARY.md`: shared terms.
-- `LCDIFF_IMPLEMENTATION_PLAN.md`: implementation plan.
 - `LCDIFF_COMPLETION_AUDIT.md`: proof evidence for the implemented product.
 - `OPERATIONS_MACOS.md`: macOS build, sign, notarize, and packaging operations.
 - `PLATFORM_VALIDATION.md`: cross-platform validation notes.
+- `RELEASING.md`: release build and publication runbook.
 
 ## Current State
 

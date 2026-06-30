@@ -6,7 +6,6 @@ const files = [
   "docs/RELEASING.md",
   "docs/OPERATIONS_MACOS.md",
   "docs/LCDIFF_COMPLETION_AUDIT.md",
-  "docs/LCDIFF_IMPLEMENTATION_PLAN.md",
   "docs/ARCHITECTURE.md",
   "docs/PLATFORM_VALIDATION.md",
   "docs/release-notes/v0.2.0.md",

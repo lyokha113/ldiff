@@ -6,8 +6,8 @@ packaging path for `LCDiff`.
 ## Current Scope
 
 - macOS `aarch64-apple-darwin` is the primary local build target.
-- The latest local arm64 distribution evidence is
-  `platform-validation/macos-distribution-aarch64-apple-darwin-20260606T051217Z.md`.
+- Local distribution evidence is written as timestamped
+  `platform-validation/macos-distribution-*.md` reports.
 - macOS `x86_64-apple-darwin` requires an Intel JDK/jlink path through
   `LCDIFF_JLINK_X86_64_APPLE_DARWIN`.
 - Developer ID notarization requires Apple certificate and notary credentials.

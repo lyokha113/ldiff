@@ -402,9 +402,8 @@ skipped. The full macOS operator runbook is `docs/OPERATIONS_MACOS.md`.
 
 Validation is **not required** for the current Linux + macOS build focus —
 `npm run verify:all` plus the build commands above are enough. The optional
-distribution runner writes evidence reports under `platform-validation/`; the
-latest local arm64 report is
-`platform-validation/macos-distribution-aarch64-apple-darwin-20260606T051217Z.md`.
+distribution runner writes timestamped evidence reports under
+`platform-validation/`.
 
 ```bash
 scripts/verify-macos-distribution.sh --skip-install
@@ -429,7 +428,6 @@ unsigned):
 Product and build references:
 
 - `docs/ARCHITECTURE.md` — application shape and boundary rules.
-- `docs/LCDIFF_IMPLEMENTATION_PLAN.md` — implementation plan.
 - `docs/LCDIFF_COMPLETION_AUDIT.md` — completion audit with proof evidence.
 - `docs/PLATFORM_VALIDATION.md` — external platform validation gates.
 - `docs/OPERATIONS_MACOS.md` — macOS sign / notarize / package / verify runbook.
