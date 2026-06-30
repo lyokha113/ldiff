@@ -83,6 +83,9 @@ yay -S lcdiff
 Drop in a `.jar`, `.zip`, or folder. Use Browse if drag-and-drop is having a
 Wayland day.
 
+Opening a supported archive or text file from Finder, Explorer, or a file
+manager launches LCDiff directly into **Single** mode and loads that source.
+
 In **Single** mode, LCDiff is an archive inspector:
 
 - browse entries without loading the whole archive into the UI;

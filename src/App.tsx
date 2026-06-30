@@ -102,6 +102,10 @@ type DiffNavigatorState = {
   total: number;
 };
 
+type OsOpenPathsPayload = {
+  paths: string[];
+};
+
 function applySearchLineHighlight(
   editor: CodeEditor | undefined,
   monaco: MonacoApi | undefined,
@@ -466,6 +470,13 @@ export function App() {
     }
   }, [refreshDiff]);
 
+  const openFromOs = useCallback((path: string) => {
+    if (!path) return;
+    setMode("single");
+    setView("workspace");
+    void openPath("left", path, true);
+  }, [openPath]);
+
   useEffect(() => {
     openTabsCountRef.current = openTabs.length;
   }, [openTabs]);
@@ -495,6 +506,33 @@ export function App() {
       });
     return () => unlisten?.();
   }, [mode, openPath]);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    let disposed = false;
+    let unlisten: undefined | (() => void);
+    void invoke<string[]>("pending_open_paths")
+      .then((paths) => {
+        if (!disposed && paths.length > 0) openFromOs(paths[0]);
+      })
+      .catch((error) => {
+        if (!disposed) setMessage(`Open-with handoff failed: ${String(error)}`);
+      });
+    listen<OsOpenPathsPayload>("os-open-paths", (event) => {
+      const [path] = event.payload.paths;
+      if (path) openFromOs(path);
+      void invoke<string[]>("pending_open_paths").catch(() => undefined);
+    }).then((stop) => {
+      if (disposed) stop();
+      else unlisten = stop;
+    }).catch((error) => {
+      if (!disposed) setMessage(`Open-with listener failed: ${String(error)}`);
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
+    };
+  }, [openFromOs]);
 
   useEffect(() => {
     if (!isTauriRuntime()) return;

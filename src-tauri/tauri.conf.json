@@ -21,6 +21,34 @@
   "bundle": {
     "active": true,
     "icon": ["icons/icon.png"],
+    "fileAssociations": [
+      {
+        "ext": ["jar", "zip", "war", "ear"],
+        "name": "LCDiff archive source",
+        "description": "JAR, ZIP, WAR, and EAR archives",
+        "role": "Viewer"
+      },
+      {
+        "ext": [
+          "txt",
+          "text",
+          "log",
+          "json",
+          "xml",
+          "properties",
+          "yaml",
+          "yml",
+          "md",
+          "csv",
+          "ini",
+          "cfg",
+          "conf"
+        ],
+        "name": "LCDiff text source",
+        "description": "Text files",
+        "role": "Viewer"
+      }
+    ],
     "resources": ["resources"]
   }
 }
