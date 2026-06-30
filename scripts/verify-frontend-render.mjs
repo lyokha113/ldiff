@@ -35,6 +35,43 @@ async function assertViewportFits(page, width, height, label) {
   }
 }
 
+function formatBox(box) {
+  return JSON.stringify({
+    x: Math.round(box.x * 100) / 100,
+    y: Math.round(box.y * 100) / 100,
+    width: Math.round(box.width * 100) / 100,
+    height: Math.round(box.height * 100) / 100,
+  });
+}
+
+function boxesOverlap(a, b, tolerance = 1) {
+  return !(
+    a.x + a.width <= b.x + tolerance ||
+    b.x + b.width <= a.x + tolerance ||
+    a.y + a.height <= b.y + tolerance ||
+    b.y + b.height <= a.y + tolerance
+  );
+}
+
+async function assertBoxInside(containerLocator, childLocator, label, tolerance = 1) {
+  const [containerBox, childBox] = await Promise.all([
+    containerLocator.boundingBox(),
+    childLocator.boundingBox(),
+  ]);
+  if (!containerBox || !childBox) {
+    throw new Error(`${label} geometry is unavailable`);
+  }
+  if (
+    childBox.x < containerBox.x - tolerance ||
+    childBox.y < containerBox.y - tolerance ||
+    childBox.x + childBox.width > containerBox.x + containerBox.width + tolerance ||
+    childBox.y + childBox.height > containerBox.y + containerBox.height + tolerance
+  ) {
+    throw new Error(`${label} escaped container: child=${formatBox(childBox)}, container=${formatBox(containerBox)}`);
+  }
+  return { containerBox, childBox };
+}
+
 function waitForServer() {
   const deadline = Date.now() + 20_000;
   return new Promise((resolve, reject) => {
@@ -110,7 +147,13 @@ try {
         if (cmd === "plugin:event|unlisten") return undefined;
         if (cmd === "platform_hints") return {};
         if (cmd === "set_engine") return undefined;
-        if (cmd === "list_system_fonts") return [];
+        if (cmd === "list_system_fonts") {
+          return [
+            { family: "A Very Long Installed Developer Font Family Name That Should Truncate Safely", monospaceLikely: true },
+            { family: "JetBrains Mono Variable", monospaceLikely: true },
+            { family: "Inter", monospaceLikely: false },
+          ];
+        }
         throw new Error(`unexpected startup render command: ${cmd}`);
       },
     };
@@ -165,10 +208,32 @@ try {
   if ((await preferencesDrawer.getByRole("button", { name: "Typography" }).count()) !== 0) {
     throw new Error("preferences still exposes top-level Typography");
   }
+  await preferencesDrawer.getByRole("button", { name: "Appearance" }).click();
+  const appearanceGroup = preferencesDrawer.getByRole("region", { name: "Appearance preferences" });
+  await appearanceGroup.waitFor({ timeout: 5_000 });
+  await assertBoxInside(appearanceGroup, appearanceGroup.getByRole("button", { name: "Light", exact: true }), "Preferences Light button");
+  await assertBoxInside(appearanceGroup, appearanceGroup.getByRole("button", { name: "System", exact: true }), "Preferences System button");
+  await preferencesDrawer.getByRole("button", { name: "Editor" }).click();
+  const editorGroup = preferencesDrawer.getByRole("region", { name: "Editor preferences" });
+  await editorGroup.waitFor({ timeout: 5_000 });
+  const fontSelect = editorGroup.getByRole("combobox", { name: "Editor font family" });
+  await fontSelect.waitFor({ timeout: 5_000 });
+  await assertBoxInside(editorGroup, fontSelect, "Preferences editor font select");
+  await fontSelect.click();
+  await page.getByRole("option", { name: /A Very Long Installed Developer Font Family Name That Should Truncate Safely/ }).click();
+  await assertBoxInside(editorGroup, fontSelect, "Preferences editor font select with long font family");
+  await editorGroup.getByText("Monaco minimap", { exact: true }).waitFor({ timeout: 5_000 });
   await preferencesDrawer.getByRole("button", { name: "Misc" }).click();
-  await preferencesDrawer.getByRole("button", { name: "Search" }).waitFor({ timeout: 5_000 });
-  await preferencesDrawer.getByRole("button", { name: "Decompiler" }).waitFor({ timeout: 5_000 });
-  await preferencesDrawer.getByRole("button", { name: "Save" }).waitFor({ timeout: 5_000 });
+  const miscGroup = preferencesDrawer.getByRole("region", { name: "Misc preferences" });
+  const miscSegments = preferencesDrawer.getByRole("group", { name: "Misc preference panels" });
+  await miscGroup.waitFor({ timeout: 5_000 });
+  await miscGroup.getByRole("button", { name: "Search" }).waitFor({ timeout: 5_000 });
+  await miscGroup.getByRole("button", { name: "Decompiler" }).waitFor({ timeout: 5_000 });
+  await miscGroup.getByRole("button", { name: "Save" }).waitFor({ timeout: 5_000 });
+  await assertBoxInside(miscGroup, miscSegments, "Preferences Misc segmented control");
+  await page.setViewportSize({ width: 560, height: 620 });
+  await assertBoxInside(miscGroup, miscSegments, "Compact Preferences Misc segmented control");
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.keyboard.press(`${commandKey}+Comma`);
   await preferencesDrawer.waitFor({ state: "detached", timeout: 5_000 });
   await page.keyboard.down(commandKey);
@@ -582,12 +647,15 @@ try {
   }
 
   const mergeActions = mockedPage.locator(".merge-actions");
-  const [mergeActionsBox, leftPaneActionsBox, rightPaneActionsBox] = await Promise.all([
+  const diffNavigator = mockedPage.getByRole("group", { name: "Diff block navigation" });
+  await diffNavigator.waitFor({ timeout: 5_000 });
+  const [mergeActionsBox, leftPaneActionsBox, rightPaneActionsBox, diffNavigatorBox] = await Promise.all([
     mergeActions.boundingBox(),
     leftPaneActions.boundingBox(),
     rightPaneActions.boundingBox(),
+    diffNavigator.boundingBox(),
   ]);
-  if (!mergeActionsBox || !leftPaneActionsBox || !rightPaneActionsBox) {
+  if (!mergeActionsBox || !leftPaneActionsBox || !rightPaneActionsBox || !diffNavigatorBox) {
     throw new Error("Compact Diff pane-action geometry is unavailable");
   }
   const mergeLeft = mergeActionsBox.x;
@@ -609,6 +677,22 @@ try {
   ) {
     throw new Error(
       `Compact right-pane actions crossed their half: group=${JSON.stringify(rightPaneActionsBox)}, midpoint=${mergeMidpoint}`,
+    );
+  }
+  const navigatorRight = diffNavigatorBox.x + diffNavigatorBox.width;
+  if (
+    diffNavigatorBox.x < mergeLeft - geometryTolerance ||
+    navigatorRight > mergeRight + geometryTolerance ||
+    diffNavigatorBox.y < mergeActionsBox.y - geometryTolerance ||
+    diffNavigatorBox.y + diffNavigatorBox.height > mergeActionsBox.y + mergeActionsBox.height + geometryTolerance
+  ) {
+    throw new Error(
+      `Compact Diff navigator escaped merge actions: navigator=${formatBox(diffNavigatorBox)}, merge=${formatBox(mergeActionsBox)}`,
+    );
+  }
+  if (boxesOverlap(diffNavigatorBox, leftPaneActionsBox) || boxesOverlap(diffNavigatorBox, rightPaneActionsBox)) {
+    throw new Error(
+      `Compact Diff navigator overlaps pane action groups: navigator=${formatBox(diffNavigatorBox)}, left=${formatBox(leftPaneActionsBox)}, right=${formatBox(rightPaneActionsBox)}`,
     );
   }
   await mockedPage.setViewportSize({ width: 1280, height: 720 });
