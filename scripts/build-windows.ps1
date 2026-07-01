@@ -109,8 +109,10 @@ $version = [string] $package.version
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 Get-ChildItem -LiteralPath $OutDir -Force | Remove-Item -Recurse -Force
 
-$artifacts = Get-ChildItem -LiteralPath $bundleRoot -Recurse -File |
-  Where-Object { $_.Extension -in ".exe", ".msi" }
+$artifacts = @(
+  Get-ChildItem -LiteralPath $bundleRoot -Recurse -File |
+    Where-Object { $_.Extension -in ".exe", ".msi" }
+)
 
 if ($artifacts.Count -eq 0) {
   throw "no .exe or .msi bundles found under $bundleRoot"
