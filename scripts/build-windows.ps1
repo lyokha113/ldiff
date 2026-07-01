@@ -58,6 +58,7 @@ $env:LCDIFF_JLINK = $bashJlink
 
 if (-not $SkipInstall) {
   Invoke-Step "npm ci" { npm ci }
+  Invoke-Step "install Playwright Chromium" { npx playwright install chromium }
 }
 
 if (-not $SkipVerify) {
