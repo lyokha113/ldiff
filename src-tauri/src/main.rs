@@ -15,8 +15,10 @@ use lcdiff_core::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+#[cfg(target_os = "macos")]
+use tauri::RunEvent;
 use tauri::{
-    Emitter, Manager, RunEvent, Runtime, State, Window,
+    Emitter, Manager, Runtime, State, Window,
     menu::{AboutMetadata, Menu, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder},
 };
 
@@ -1400,12 +1402,20 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("error while building LCDiff")
         .run(|app, event| {
-            if let RunEvent::Opened { urls } = event {
-                let paths = urls
-                    .into_iter()
-                    .filter_map(|url| url.to_file_path().ok())
-                    .collect();
-                store_and_emit_open_paths(app, paths);
+            #[cfg(target_os = "macos")]
+            {
+                if let RunEvent::Opened { urls } = event {
+                    let paths = urls
+                        .into_iter()
+                        .filter_map(|url| url.to_file_path().ok())
+                        .collect();
+                    store_and_emit_open_paths(app, paths);
+                }
+            }
+
+            #[cfg(not(target_os = "macos"))]
+            {
+                let _ = (app, event);
             }
         });
 }
