@@ -75,7 +75,11 @@ context overlays: search, preferences, pending changes, confirmations
 `SearchResultsPanel`, `ConfigDrawer`, and `StatusBar` render state and emit typed
 intent callbacks. Search opens on demand and closes after result selection, so
 the contextual surface cannot block the Files navigator. View mode removes
-right-side and merge-only controls instead of disabling them.
+right-side and merge-only controls instead of disabling them. Text mode is a
+separate frontend-only workspace for ad hoc paste/type comparison; it renders
+the Monaco diff editor directly and skips source pickers, file trees, tree
+expansion, diff tabs, merge staging, save, reload, history, hunk controls, and
+diff-block navigation.
 
 GSAP and `@gsap/react` are restricted to the startup composition. Normal
 workspace interactions use transform/opacity CSS transitions, and reduced

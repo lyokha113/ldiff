@@ -109,7 +109,13 @@ truth.
 - Binary entries still show size, CRC, SHA-256, and hex previews.
 - Nested archives expand lazily when you ask for them.
 
-### 3. Search Like You Mean It
+### 3. Compare Free Text Without Making Files
+
+Switch to **Text** when you just want to paste or type two snippets directly
+into a clean two-pane diff editor. Text mode skips file pickers, archive trees,
+merge staging, and hunk controls.
+
+### 4. Search Like You Mean It
 
 Use search from the Files workspace or inside an open diff.
 
@@ -118,7 +124,7 @@ Use search from the Files workspace or inside an open diff.
 - Optional deep decompiled-source search when the surface answer is not enough.
 - Clickable results jump straight to the matching entry or diff tab.
 
-### 4. Stage A Merge Without Lying To Yourself
+### 5. Stage A Merge Without Lying To Yourself
 
 Use row actions or context menus to copy entries between sides.
 
@@ -128,7 +134,7 @@ and only then save. The save path is atomic and can keep a `.bak` backup.
 Important contract: LCDiff merges original entry bytes. It never writes the
 decompiled Java view back into your archive.
 
-### 5. Save With Guard Rails
+### 6. Save With Guard Rails
 
 Before writing, LCDiff warns when:
 
